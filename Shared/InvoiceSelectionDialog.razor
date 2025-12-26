@@ -1,0 +1,111 @@
+@using InvoiceApp.Models
+@using MudBlazor
+
+<MudDialog>
+    <DialogContent>
+        <MudStack Spacing="3">
+            <MudText>Wählen Sie eine Rechnung aus, die Sie versenden möchten:</MudText>
+
+            <MudTextField @bind-Value="_searchString"
+                          Label="Suchen"
+                          Variant="Variant.Outlined"
+                          Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.Search"
+                          Immediate="true" />
+
+            <MudList T="Invoice" Dense="true" Style="max-height: 400px; overflow-y: auto;">
+                @foreach (var invoice in FilteredInvoices)
+                {
+                    <MudListItem T="Invoice" @onclick="@(() => SelectInvoice(invoice.Id))">
+                        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                            <MudStack Spacing="0">
+                                <MudText Typo="Typo.body1"><strong>@invoice.InvoiceNumber</strong></MudText>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                    @invoice.Customer?.Name - @invoice.InvoiceDate.ToString("dd.MM.yyyy")
+                                </MudText>
+                            </MudStack>
+                            <MudStack AlignItems="AlignItems.End" Spacing="0">
+                                <MudText Typo="Typo.body2">@invoice.TotalGross.ToString("C2", _culture)</MudText>
+                                <MudChip T="string" Size="Size.Small" Color="@GetStatusColor(invoice.Status)">
+                                    @GetStatusText(invoice.Status)
+                                </MudChip>
+                            </MudStack>
+                        </MudStack>
+                    </MudListItem>
+                    <MudDivider />
+                }
+            </MudList>
+
+            @if (!FilteredInvoices.Any())
+            {
+                <MudAlert Severity="Severity.Info" Dense="true">
+                    Keine Rechnungen gefunden.
+                </MudAlert>
+            }
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel" Variant="Variant.Text">Abbrechen</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    public IMudDialogInstance MudDialog { get; set; } = null!;
+
+    [Parameter]
+    public List<Invoice> Invoices { get; set; } = new();
+
+    private string _searchString = string.Empty;
+    private System.Globalization.CultureInfo _culture = new System.Globalization.CultureInfo("de-DE");
+
+    private IEnumerable<Invoice> FilteredInvoices
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(_searchString))
+                return Invoices;
+
+            var search = _searchString.ToLower();
+            return Invoices.Where(i =>
+                i.InvoiceNumber.ToLower().Contains(search) ||
+                (i.Customer?.Name?.ToLower().Contains(search) ?? false));
+        }
+    }
+
+    private void SelectInvoice(int invoiceId)
+    {
+        MudDialog.Close(DialogResult.Ok(invoiceId));
+    }
+
+    private void Cancel()
+    {
+        MudDialog.Cancel();
+    }
+
+    private Color GetStatusColor(InvoiceStatus status)
+    {
+        return status switch
+        {
+            InvoiceStatus.Draft => Color.Default,
+            InvoiceStatus.Sent => Color.Info,
+            InvoiceStatus.Paid => Color.Success,
+            InvoiceStatus.Overdue => Color.Error,
+            InvoiceStatus.Cancelled => Color.Dark,
+            _ => Color.Default
+        };
+    }
+
+    private string GetStatusText(InvoiceStatus status)
+    {
+        return status switch
+        {
+            InvoiceStatus.Draft => "Entwurf",
+            InvoiceStatus.Sent => "Versendet",
+            InvoiceStatus.Paid => "Beglichen",
+            InvoiceStatus.Overdue => "Überfällig",
+            InvoiceStatus.Cancelled => "Storniert",
+            _ => status.ToString()
+        };
+    }
+}

@@ -1,0 +1,373 @@
+@page "/settings/company"
+@using InvoiceApp.Models
+@using InvoiceApp.Services
+@using Microsoft.AspNetCore.Components.Forms
+@inject ICompanyService CompanyService
+@inject ISnackbar Snackbar
+@inject NavigationManager NavigationManager
+@inject IWebHostEnvironment Environment
+
+<PageTitle>Firmenstammdaten - Küstencode Faktura</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+    <MudPaper Elevation="2" Class="pa-4">
+        <MudText Typo="Typo.h4" GutterBottom="true">Firmenstammdaten</MudText>
+
+        @if (_loading)
+        {
+            <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+        }
+        else
+        {
+            <EditForm Model="@_company" OnValidSubmit="HandleSubmit">
+                <DataAnnotationsValidator />
+
+                @if (!string.IsNullOrEmpty(_errorMessage))
+                {
+                    <MudAlert Severity="Severity.Error" Class="my-2">@_errorMessage</MudAlert>
+                }
+
+                <!-- Sektion 1: Grunddaten -->
+                <MudText Typo="Typo.h6" Class="mt-6 mb-2">Grunddaten</MudText>
+                <MudGrid>
+                    <MudItem xs="12">
+                        <MudTextField Label="Ihr vollständiger Name (Vor- und Nachname)"
+                                     @bind-Value="_company.OwnerFullName"
+                                     For="@(() => _company.OwnerFullName)"
+                                     Required="true"
+                                     Placeholder="z.B. Max Mustermann"
+                                     HelperText="Pflichtangabe für Kleinunternehmer" />
+                    </MudItem>
+                    <MudItem xs="12">
+                        <MudTextField Label="Geschäftsbezeichnung (optional)"
+                                     @bind-Value="_company.BusinessName"
+                                     For="@(() => _company.BusinessName)"
+                                     Placeholder="z.B. IT-Solutions Mustermann"
+                                     HelperText="Wird zusätzlich zum Namen angezeigt" />
+                    </MudItem>
+                    <MudItem xs="12">
+                        <MudPaper Elevation="0" Class="pa-3" Style="background-color: var(--mud-palette-background-grey);">
+                            <MudText Typo="Typo.caption" Class="mb-2">Vorschau Briefkopf:</MudText>
+                            @if (!string.IsNullOrWhiteSpace(_company.BusinessName))
+                            {
+                                <MudText Typo="Typo.h6" Style="font-weight: bold;">@_company.BusinessName</MudText>
+                                <MudText Typo="Typo.body2">@_company.OwnerFullName</MudText>
+                            }
+                            else if (!string.IsNullOrWhiteSpace(_company.OwnerFullName))
+                            {
+                                <MudText Typo="Typo.h6" Style="font-weight: bold;">@_company.OwnerFullName</MudText>
+                            }
+                            else
+                            {
+                                <MudText Typo="Typo.body2" Style="font-style: italic; color: var(--mud-palette-text-secondary);">
+                                    Bitte geben Sie mindestens Ihren Namen ein
+                                </MudText>
+                            }
+                        </MudPaper>
+                    </MudItem>
+                    <MudItem xs="12">
+                        <MudTextField Label="Adresse" @bind-Value="_company.Address"
+                                     For="@(() => _company.Address)" Required="true"
+                                     Lines="3" />
+                    </MudItem>
+                    <MudItem xs="12" sm="4">
+                        <MudTextField Label="PLZ" @bind-Value="_company.PostalCode"
+                                     For="@(() => _company.PostalCode)" Required="true" />
+                    </MudItem>
+                    <MudItem xs="12" sm="4">
+                        <MudTextField Label="Stadt" @bind-Value="_company.City"
+                                     For="@(() => _company.City)" Required="true" />
+                    </MudItem>
+                    <MudItem xs="12" sm="4">
+                        <MudTextField Label="Land" @bind-Value="_company.Country"
+                                     For="@(() => _company.Country)" Required="true" />
+                    </MudItem>
+                </MudGrid>
+
+                <!-- Sektion 2: Firmenlogo (optional) -->
+                <MudText Typo="Typo.h6" Class="mt-6 mb-2">Firmenlogo (optional)</MudText>
+                <MudCard Elevation="0" Class="mb-4">
+                    <MudCardContent>
+                        @if (_company.LogoData != null && _company.LogoData.Length > 0)
+                        {
+                            <div class="mb-4">
+                                <MudText Typo="Typo.body2" Class="mb-2">Aktuelles Logo:</MudText>
+                                <img src="@GetLogoDataUrl()"
+                                     alt="Firmenlogo"
+                                     style="max-width: 200px; max-height: 100px; border: 1px solid #E5E7EB; padding: 8px; border-radius: 4px;" />
+                                <div class="mt-2">
+                                    <MudButton OnClick="RemoveLogo"
+                                               Color="Color.Error"
+                                               Variant="Variant.Text"
+                                               StartIcon="@Icons.Material.Filled.Delete"
+                                               Size="Size.Small">
+                                        Logo entfernen
+                                    </MudButton>
+                                </div>
+                            </div>
+                        }
+                        else
+                        {
+                            <MudText Typo="Typo.body2" Class="mb-2" Color="Color.Secondary">Kein Logo hochgeladen</MudText>
+                        }
+
+                        <MudFileUpload T="IBrowserFile"
+                                       Accept=".png,.jpg,.jpeg"
+                                       FilesChanged="HandleLogoUpload"
+                                       MaximumFileCount="1">
+                            <ActivatorContent>
+                                <MudButton Variant="Variant.Filled"
+                                           Color="Color.Primary"
+                                           StartIcon="@Icons.Material.Filled.CloudUpload"
+                                           Size="Size.Small">
+                                    Logo hochladen
+                                </MudButton>
+                            </ActivatorContent>
+                        </MudFileUpload>
+
+                        <MudText Typo="Typo.caption" Class="mt-2" Color="Color.Secondary">
+                            Empfohlen: 300x100px, PNG mit transparentem Hintergrund. Max. 2 MB.
+                        </MudText>
+                    </MudCardContent>
+                </MudCard>
+
+                <!-- Sektion 3: Kontaktdaten -->
+                <MudText Typo="Typo.h6" Class="mt-6 mb-2">Kontaktdaten</MudText>
+                <MudGrid>
+                    <MudItem xs="12" sm="6">
+                        <MudTextField Label="E-Mail" @bind-Value="_company.Email"
+                                     For="@(() => _company.Email)" Required="true"
+                                     InputType="InputType.Email" />
+                    </MudItem>
+                    <MudItem xs="12" sm="6">
+                        <MudTextField Label="Telefon" @bind-Value="_company.Phone"
+                                     For="@(() => _company.Phone)"
+                                     InputType="InputType.Telephone" />
+                    </MudItem>
+                    <MudItem xs="12">
+                        <MudTextField Label="Website" @bind-Value="_company.Website"
+                                     For="@(() => _company.Website)"
+                                     InputType="InputType.Url"
+                                     Placeholder="https://www.beispiel.de" />
+                    </MudItem>
+                </MudGrid>
+
+                <!-- Sektion 3: Steuerdaten -->
+                <MudText Typo="Typo.h6" Class="mt-6 mb-2">Steuerdaten</MudText>
+                <MudGrid>
+                    <MudItem xs="12" sm="6">
+                        <MudTextField Label="Steuernummer" @bind-Value="_company.TaxNumber"
+                                     For="@(() => _company.TaxNumber)" Required="true" />
+                    </MudItem>
+                    <MudItem xs="12" sm="6">
+                        <MudTextField Label="USt-IdNr." @bind-Value="_company.VatId"
+                                     For="@(() => _company.VatId)" />
+                    </MudItem>
+                    <MudItem xs="12">
+                        <MudCheckBox @bind-Value="_company.IsKleinunternehmer"
+                                    Label="Kleinunternehmer nach §19 UStG"
+                                    Color="Color.Primary" />
+                        @if (_company.IsKleinunternehmer)
+                        {
+                            <MudAlert Severity="Severity.Info" Dense="true" Class="mt-2">
+                                Als Kleinunternehmer wird auf Rechnungen keine Umsatzsteuer ausgewiesen.
+                            </MudAlert>
+                        }
+                    </MudItem>
+                </MudGrid>
+
+                <!-- Sektion 4: Bankverbindung -->
+                <MudText Typo="Typo.h6" Class="mt-6 mb-2">Bankverbindung</MudText>
+                <MudGrid>
+                    <MudItem xs="12" sm="6">
+                        <MudTextField Label="Bankname" @bind-Value="_company.BankName"
+                                     For="@(() => _company.BankName)" Required="true" />
+                    </MudItem>
+                    <MudItem xs="12" sm="6">
+                        <MudTextField Label="Kontoinhaber" @bind-Value="_company.AccountHolder"
+                                     For="@(() => _company.AccountHolder)"
+                                     Placeholder="@_company.OwnerFullName" />
+                    </MudItem>
+                    <MudItem xs="12" sm="8">
+                        <MudTextField Label="IBAN" @bind-Value="_company.BankAccount"
+                                     For="@(() => _company.BankAccount)" Required="true"
+                                     Placeholder="DE89370400440532013000" />
+                    </MudItem>
+                    <MudItem xs="12" sm="4">
+                        <MudTextField Label="BIC" @bind-Value="_company.Bic"
+                                     For="@(() => _company.Bic)" />
+                    </MudItem>
+                </MudGrid>
+
+                <!-- Sektion 5: Rechnungseinstellungen -->
+                <MudText Typo="Typo.h6" Class="mt-6 mb-2">Rechnungseinstellungen</MudText>
+                <MudGrid>
+                    <MudItem xs="12" sm="6">
+                        <MudNumericField Label="Standard-Zahlungsziel (Tage)" @bind-Value="_company.DefaultPaymentTermDays"
+                                        For="@(() => _company.DefaultPaymentTermDays)"
+                                        Min="1" Max="90" />
+                    </MudItem>
+                    <MudItem xs="12" sm="6">
+                        <MudTextField Label="Rechnungsnummer-Präfix" @bind-Value="_company.InvoiceNumberPrefix"
+                                     For="@(() => _company.InvoiceNumberPrefix)"
+                                     Placeholder="RE-"
+                                     HelperText="Format wird automatisch: {Präfix}YYYY-NNN" />
+                    </MudItem>
+                    <MudItem xs="12">
+                        <MudTextField Label="Kleingedrucktes/Fußzeile" @bind-Value="_company.FooterText"
+                                     For="@(() => _company.FooterText)"
+                                     Lines="4"
+                                     Placeholder="Z.B. Geschäftsführer, Registergericht, etc." />
+                    </MudItem>
+                </MudGrid>
+
+                <!-- Buttons -->
+                <MudStack Row="true" Justify="Justify.SpaceBetween" Class="mt-6">
+                    <MudButton Variant="Variant.Text" Color="Color.Default" OnClick="ResetForm">
+                        Zurücksetzen
+                    </MudButton>
+                    <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary"
+                              Disabled="@_saving">
+                        @if (_saving)
+                        {
+                            <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                            <MudText Class="ms-2">Speichern...</MudText>
+                        }
+                        else
+                        {
+                            <MudText>Speichern</MudText>
+                        }
+                    </MudButton>
+                </MudStack>
+            </EditForm>
+        }
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private Company _company = new();
+    private bool _loading = true;
+    private bool _saving = false;
+    private string? _errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _company = await CompanyService.GetCompanyAsync();
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Fehler beim Laden: {ex.Message}";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task HandleSubmit()
+    {
+        _saving = true;
+        _errorMessage = null;
+
+        try
+        {
+            await CompanyService.UpdateCompanyAsync(_company);
+            Snackbar.Add("Firmendaten gespeichert", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Fehler beim Speichern: {ex.Message}";
+            Snackbar.Add("Fehler beim Speichern der Firmendaten", Severity.Error);
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private async Task ResetForm()
+    {
+        _loading = true;
+        try
+        {
+            _company = await CompanyService.GetCompanyAsync();
+            Snackbar.Add("Formular zurückgesetzt", Severity.Info);
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Fehler beim Zurücksetzen: {ex.Message}";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task HandleLogoUpload(IBrowserFile file)
+    {
+        // Validierung: Dateigröße
+        if (file.Size > 2 * 1024 * 1024) // 2 MB
+        {
+            Snackbar.Add("Logo darf maximal 2 MB groß sein", Severity.Error);
+            return;
+        }
+
+        // Validierung: Dateityp
+        var allowedTypes = new[] { "image/png", "image/jpeg", "image/jpg" };
+        if (!allowedTypes.Contains(file.ContentType))
+        {
+            Snackbar.Add("Nur PNG und JPG Dateien erlaubt", Severity.Error);
+            return;
+        }
+
+        try
+        {
+            // Read into memory instead of filesystem
+            using var memoryStream = new MemoryStream();
+            await file.OpenReadStream(maxAllowedSize: 2 * 1024 * 1024).CopyToAsync(memoryStream);
+
+            // Store in database
+            _company.LogoData = memoryStream.ToArray();
+            _company.LogoContentType = file.ContentType;
+
+            // Save to database
+            await CompanyService.UpdateCompanyAsync(_company);
+
+            Snackbar.Add("Logo erfolgreich hochgeladen", Severity.Success);
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler beim Upload: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task RemoveLogo()
+    {
+        try
+        {
+            _company.LogoData = null;
+            _company.LogoContentType = null;
+
+            await CompanyService.UpdateCompanyAsync(_company);
+
+            Snackbar.Add("Logo entfernt", Severity.Success);
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler beim Entfernen: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private string GetLogoDataUrl()
+    {
+        if (_company.LogoData == null || _company.LogoData.Length == 0)
+            return string.Empty;
+
+        var base64 = Convert.ToBase64String(_company.LogoData);
+        return $"data:{_company.LogoContentType};base64,{base64}";
+    }
+}

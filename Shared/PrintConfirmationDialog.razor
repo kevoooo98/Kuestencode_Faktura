@@ -1,0 +1,27 @@
+@using InvoiceApp.Models
+@using MudBlazor
+
+<MudDialog>
+    <DialogContent>
+        <MudText Typo="Typo.body1" Class="mb-3">
+            Wurde die Rechnung erfolgreich gedruckt?
+        </MudText>
+        <MudText Typo="Typo.body2" Color="Color.Secondary">
+            Die Rechnung wird als "Versendet" markiert und der Druckzähler wird erhöht.
+        </MudText>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Nein / Abbrechen</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Confirm">
+            Ja, gedruckt
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    public IMudDialogInstance Dialog { get; set; } = default!;
+
+    void Cancel() => Dialog.Cancel();
+    void Confirm() => Dialog.Close(DialogResult.Ok(true));
+}

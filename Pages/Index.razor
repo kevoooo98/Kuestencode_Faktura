@@ -1,0 +1,359 @@
+@page "/"
+@using InvoiceApp.Services
+@using InvoiceApp.Models.Dashboard
+@using Microsoft.AspNetCore.Components.Routing
+@inject IDashboardService DashboardService
+@inject NavigationManager NavigationManager
+@implements IDisposable
+@attribute [StreamRendering(true)]
+
+<PageTitle>Küstencode Faktura</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4" @key="@_refreshKey">
+    <MudText Typo="Typo.h4" GutterBottom="true">Übersicht</MudText>
+
+    <!-- Systemstatus Block -->
+    <MudPaper Class="pa-4 mt-4" Elevation="1">
+        <MudText Typo="Typo.h6" GutterBottom="true">Systemstatus</MudText>
+
+        @if (_loadingHealth)
+        {
+            <MudProgressLinear Color="Color.Primary" Indeterminate="true" Class="my-2" />
+        }
+        else if (_healthError)
+        {
+            <MudAlert Severity="Severity.Info" Dense="true">
+                Systemstatus konnte nicht geladen werden.
+            </MudAlert>
+        }
+        else
+        {
+            <MudStack Spacing="3">
+                @foreach (var health in _healthItems)
+                {
+                    @if (health.Name == "E-Mail-Versand" || health.Name == "Firmenstammdaten")
+                    {
+                        var targetUrl = health.Name == "E-Mail-Versand" ? "/settings/email" : "/settings/company";
+                        <MudPaper Elevation="0" Style="cursor: pointer; padding: 0; transition: background-color 0.2s;"
+                                 @onclick="@(() => NavigationManager.NavigateTo(targetUrl))">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="hover-highlight">
+                                <MudIcon Icon="@Icons.Material.Filled.Circle"
+                                        Color="@(health.IsHealthy ? Color.Success : Color.Warning)"
+                                        Size="Size.Small" />
+                                <MudStack Spacing="0" Style="flex: 1;">
+                                    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                                        <MudText Typo="Typo.body1" Class="health-link">@health.Name</MudText>
+                                        
+                                    </MudStack>
+                                    @if (health.CheckedAt.HasValue)
+                                    {
+                                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                            Letzte Prüfung: @health.CheckedAt.Value.ToString("HH:mm")
+                                        </MudText>
+                                    }
+                                    @if (!health.IsHealthy && !string.IsNullOrEmpty(health.DetailMessage))
+                                    {
+                                        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-1">
+                                            @health.DetailMessage
+                                        </MudText>
+                                    }
+                                </MudStack>
+                            </MudStack>
+                        </MudPaper>
+                    }
+                    else
+                    {
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                            <MudIcon Icon="@Icons.Material.Filled.Circle"
+                                    Color="@(health.IsHealthy ? Color.Success : Color.Error)"
+                                    Size="Size.Small" />
+                            <MudStack Spacing="0" Style="flex: 1;">
+                                <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                                    <MudText Typo="Typo.body1">@health.Name</MudText>
+                                    @if (!health.IsHealthy)
+                                    {
+                                        <MudText Typo="Typo.body2" Color="Color.Error">
+                                            @health.StatusText
+                                        </MudText>
+                                    }
+                                </MudStack>
+                                @if (health.CheckedAt.HasValue)
+                                {
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                        Letzte Prüfung: @health.CheckedAt.Value.ToString("HH:mm")
+                                    </MudText>
+                                }
+                                @if (!health.IsHealthy && !string.IsNullOrEmpty(health.DetailMessage))
+                                {
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-1">
+                                        @health.DetailMessage
+                                    </MudText>
+                                }
+                            </MudStack>
+                        </MudStack>
+                    }
+                }
+            </MudStack>
+        }
+    </MudPaper>
+
+    <!-- Übersicht Block -->
+    <MudPaper Class="pa-4 mt-4" Elevation="1">
+        <MudText Typo="Typo.h6" GutterBottom="true">Übersicht</MudText>
+
+        @if (_loadingSummary)
+        {
+            <MudProgressLinear Color="Color.Primary" Indeterminate="true" Class="my-2" />
+        }
+        else if (_summaryError)
+        {
+            <MudAlert Severity="Severity.Info" Dense="true">
+                Übersicht konnte nicht geladen werden.
+            </MudAlert>
+        }
+        else
+        {
+            <MudGrid Spacing="3">
+                <MudItem xs="6" sm="3">
+                    <MudPaper Elevation="0" Style="cursor: pointer; padding: 8px; transition: background-color 0.2s;"
+                             Class="metric-card"
+                             @onclick="@(() => NavigationManager.NavigateTo("/invoices?status=sent"))">
+                        <MudStack Spacing="1">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Versendete Fakturen</MudText>
+                            <MudText Typo="Typo.h4">@_summary.OpenInvoices</MudText>
+                        </MudStack>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="6" sm="3">
+                    <MudPaper Elevation="0" Style="cursor: pointer; padding: 8px; transition: background-color 0.2s;"
+                             Class="metric-card"
+                             @onclick="@(() => NavigationManager.NavigateTo("/invoices?status=overdue"))">
+                        <MudStack Spacing="1">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Überfällige Fakturen</MudText>
+                            <MudText Typo="Typo.h4" Color="@(_summary.OverdueInvoices > 0 ? Color.Error : Color.Default)">
+                                @_summary.OverdueInvoices
+                            </MudText>
+                        </MudStack>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="6" sm="3">
+                    <MudPaper Elevation="0" Style="cursor: pointer; padding: 8px; transition: background-color 0.2s;"
+                             Class="metric-card"
+                             @onclick="@(() => NavigationManager.NavigateTo("/invoices?status=draft"))">
+                        <MudStack Spacing="1">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Entwürfe</MudText>
+                            <MudText Typo="Typo.h4">@_summary.DraftInvoices</MudText>
+                        </MudStack>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="6" sm="3">
+                    <MudPaper Elevation="0" Style="cursor: pointer; padding: 8px; transition: background-color 0.2s;"
+                             Class="metric-card"
+                             @onclick="@(() => NavigationManager.NavigateTo("/invoices?range=thisMonth"))">
+                        <MudStack Spacing="1">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Umsatz (aktueller Monat)</MudText>
+                            <MudText Typo="Typo.h4">@_summary.RevenueThisMonth.ToString("C0", _culture)</MudText>
+                        </MudStack>
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+        }
+    </MudPaper>
+
+    <!-- Letzte Aktivitäten Block -->
+    <MudPaper Class="pa-4 mt-4 mb-4" Elevation="1">
+        <MudText Typo="Typo.h6" GutterBottom="true">Letzte Aktivitäten</MudText>
+
+        @if (_loadingActivities)
+        {
+            <MudProgressLinear Color="Color.Primary" Indeterminate="true" Class="my-2" />
+        }
+        else if (_activitiesError)
+        {
+            <MudAlert Severity="Severity.Info" Dense="true">
+                Aktivitäten konnten nicht geladen werden.
+            </MudAlert>
+        }
+        else if (!_activities.Any())
+        {
+            <MudText Typo="Typo.body2" Color="Color.Secondary">
+                Keine aktuellen Aktivitäten vorhanden.
+            </MudText>
+        }
+        else
+        {
+            <MudStack Spacing="2">
+                @foreach (var activity in _activities)
+                {
+                    @if (!string.IsNullOrEmpty(activity.Url))
+                    {
+                        <MudPaper Class="pa-3" Elevation="0" Style="cursor: pointer; border: 1px solid #E5E7EB;"
+                                 @onclick="@(() => NavigationManager.NavigateTo(activity.Url))">
+                            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                                <MudText Typo="Typo.body2">@activity.Text</MudText>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                    @GetRelativeTime(activity.Date)
+                                </MudText>
+                            </MudStack>
+                        </MudPaper>
+                    }
+                    else
+                    {
+                        <MudPaper Class="pa-3" Elevation="0" Style="border: 1px solid #E5E7EB;">
+                            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                                <MudText Typo="Typo.body2">@activity.Text</MudText>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                    @GetRelativeTime(activity.Date)
+                                </MudText>
+                            </MudStack>
+                        </MudPaper>
+                    }
+                }
+            </MudStack>
+        }
+    </MudPaper>
+</MudContainer>
+
+<style>
+    .hover-highlight:hover {
+        background-color: rgba(0, 0, 0, 0.02);
+    }
+
+    .health-link:hover {
+        text-decoration: underline;
+    }
+
+    .metric-card:hover {
+        background-color: rgba(0, 0, 0, 0.02);
+    }
+</style>
+
+@code {
+    private List<ServiceHealthItem> _healthItems = new();
+    private DashboardSummary _summary = new();
+    private List<ActivityItem> _activities = new();
+
+    private bool _loadingHealth = true;
+    private bool _loadingSummary = true;
+    private bool _loadingActivities = true;
+
+    private bool _healthError = false;
+    private bool _summaryError = false;
+    private bool _activitiesError = false;
+
+    private System.Globalization.CultureInfo _culture = new System.Globalization.CultureInfo("de-DE");
+    private Guid _refreshKey = Guid.NewGuid();
+
+    protected override void OnInitialized()
+    {
+        NavigationManager.LocationChanged += HandleLocationChanged;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDashboardDataAsync();
+    }
+
+    private void HandleLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        // Nur neu laden wenn wir auf die Startseite navigieren
+        var uri = new Uri(e.Location);
+        if (uri.AbsolutePath == "/" || uri.AbsolutePath == "")
+        {
+            _refreshKey = Guid.NewGuid(); // Force re-render
+            InvokeAsync(async () =>
+            {
+                await LoadDashboardDataAsync();
+                StateHasChanged();
+            });
+        }
+    }
+
+    public void Dispose()
+    {
+        NavigationManager.LocationChanged -= HandleLocationChanged;
+    }
+
+    private async Task LoadDashboardDataAsync()
+    {
+        // Reset loading states
+        _loadingHealth = true;
+        _loadingSummary = true;
+        _loadingActivities = true;
+        _healthError = false;
+        _summaryError = false;
+        _activitiesError = false;
+
+        // Load data sequentially to avoid DbContext threading issues
+        await LoadHealthAsync();
+        await LoadSummaryAsync();
+        await LoadActivitiesAsync();
+    }
+
+
+    private async Task LoadHealthAsync()
+    {
+        try
+        {
+            var health = await DashboardService.GetHealthAsync();
+            _healthItems = health.ToList();
+        }
+        catch
+        {
+            _healthError = true;
+        }
+        finally
+        {
+            _loadingHealth = false;
+        }
+    }
+
+    private async Task LoadSummaryAsync()
+    {
+        try
+        {
+            _summary = await DashboardService.GetSummaryAsync();
+        }
+        catch
+        {
+            _summaryError = true;
+        }
+        finally
+        {
+            _loadingSummary = false;
+        }
+    }
+
+    private async Task LoadActivitiesAsync()
+    {
+        try
+        {
+            var activities = await DashboardService.GetRecentActivitiesAsync(5);
+            _activities = activities.ToList();
+        }
+        catch
+        {
+            _activitiesError = true;
+        }
+        finally
+        {
+            _loadingActivities = false;
+        }
+    }
+
+    private string GetRelativeTime(DateTime date)
+    {
+        var timeSpan = DateTime.Now - date;
+
+        if (timeSpan.TotalMinutes < 1)
+            return "Gerade eben";
+        if (timeSpan.TotalMinutes < 60)
+            return $"vor {(int)timeSpan.TotalMinutes} Min.";
+        if (timeSpan.TotalHours < 24)
+            return $"vor {(int)timeSpan.TotalHours} Std.";
+        if (timeSpan.TotalDays < 7)
+            return $"vor {(int)timeSpan.TotalDays} Tag{((int)timeSpan.TotalDays > 1 ? "en" : "")}";
+
+        return date.ToString("dd.MM.yyyy");
+    }
+}

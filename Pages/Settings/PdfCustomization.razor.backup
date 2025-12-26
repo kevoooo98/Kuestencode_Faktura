@@ -1,0 +1,496 @@
+@page "/settings/email-anpassung"
+@using InvoiceApp.Models
+@using InvoiceApp.Services
+@inject ICompanyService CompanyService
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<PageTitle>E-Mail-Anpassung - Küstencode Faktura</PageTitle>
+
+<div style="width: 100%; padding: 24px;">
+    <div style="display: flex; gap: 24px; flex-wrap: wrap;">
+        <!-- Settings Panel -->
+        <div style="flex: 0 0 100%; max-width: 100%;" class="d-lg-none">
+            <MudPaper Elevation="2" Class="pa-6">
+        <MudText Typo="Typo.h4" GutterBottom="true">E-Mail-Anpassung</MudText>
+        <MudText Typo="Typo.body1" Color="Color.Secondary" Class="mb-6">
+            Passen Sie das Erscheinungsbild Ihrer Rechnungs-E-Mails an, ohne dabei den klaren Charakter zu verlieren.
+        </MudText>
+
+        @if (_loading)
+        {
+            <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+        }
+        else
+        {
+            <!-- Layout-Auswahl -->
+            <MudText Typo="Typo.h6" Class="mt-6 mb-3">Layout</MudText>
+            <MudRadioGroup @bind-Value="_company.EmailLayout">
+                <MudCard Outlined="true" Class="mb-3" Style="@(_company.EmailLayout == EmailLayout.Klar ? "border: 2px solid var(--mud-palette-primary);" : "")">
+                    <MudCardContent>
+                        <MudRadio Value="EmailLayout.Klar" Color="Color.Primary">
+                            <MudText Typo="Typo.h6">Klar <MudChip T="string" Size="Size.Small" Variant="Variant.Text">Default</MudChip></MudText>
+                        </MudRadio>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="ml-8">
+                            Reduziert, sachlich, ohne visuelle Trennung. Text-dominiert mit maximaler Lesbarkeit.
+                        </MudText>
+                    </MudCardContent>
+                </MudCard>
+
+                <MudCard Outlined="true" Class="mb-3" Style="@(_company.EmailLayout == EmailLayout.Strukturiert ? "border: 2px solid var(--mud-palette-primary);" : "")">
+                    <MudCardContent>
+                        <MudRadio Value="EmailLayout.Strukturiert" Color="Color.Primary">
+                            <MudText Typo="Typo.h6">Strukturiert</MudText>
+                        </MudRadio>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="ml-8">
+                            Mit klaren Abschnitten und dezenter Hervorhebung. Rechnungsdaten in einer Box mit Trennlinien.
+                        </MudText>
+                    </MudCardContent>
+                </MudCard>
+
+                <MudCard Outlined="true" Class="mb-3" Style="@(_company.EmailLayout == EmailLayout.Betont ? "border: 2px solid var(--mud-palette-primary);" : "")">
+                    <MudCardContent>
+                        <MudRadio Value="EmailLayout.Betont" Color="Color.Primary">
+                            <MudText Typo="Typo.h6">Betont</MudText>
+                        </MudRadio>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="ml-8">
+                            Mehr visuelle Führung, aber weiterhin zurückhaltend. Farbiger Header und hervorgehobener Betrag.
+                        </MudText>
+                    </MudCardContent>
+                </MudCard>
+            </MudRadioGroup>
+
+            <!-- Farben -->
+            <MudText Typo="Typo.h6" Class="mt-6 mb-3">Farben</MudText>
+            <MudGrid>
+                <MudItem xs="12" md="6">
+                    <MudText Typo="Typo.subtitle2" Class="mb-2">Primärfarbe</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-3">
+                        Wird für Überschriften und Hervorhebungen verwendet.
+                    </MudText>
+
+                    <MudColorPicker @bind-Value="_primaryColorValue"
+                                   ColorPickerMode="ColorPickerMode.RGB"
+                                   DisableAlpha="true"
+                                   Placeholder="Farbe wählen"
+                                   Class="mb-3" />
+
+                    <MudText Typo="Typo.caption" Class="mb-2">Vorschläge:</MudText>
+                    <MudStack Row="true" Spacing="2" Wrap="Wrap.Wrap">
+                        <MudChip T="string" Size="Size.Small" OnClick='() => SetPrimaryColor("#0F2A3D")'
+                                Style="background-color: #0F2A3D; color: white;">Küstencode Primär</MudChip>
+                        <MudChip T="string" Size="Size.Small" OnClick='() => SetPrimaryColor("#1f3a5f")'
+                                Style="background-color: #1f3a5f; color: white;">Nordisch Blau</MudChip>
+                        <MudChip T="string" Size="Size.Small" OnClick='() => SetPrimaryColor("#374151")'
+                                Style="background-color: #374151; color: white;">Anthrazit</MudChip>
+                        <MudChip T="string" Size="Size.Small" OnClick='() => SetPrimaryColor("#065f46")'
+                                Style="background-color: #065f46; color: white;">Dunkelgrün</MudChip>
+                        <MudChip T="string" Size="Size.Small" OnClick='() => SetPrimaryColor("#0c4a6e")'
+                                Style="background-color: #0c4a6e; color: white;">Tiefseeblau</MudChip>
+                        <MudChip T="string" Size="Size.Small" OnClick='() => SetPrimaryColor("#334155")'
+                                Style="background-color: #334155; color: white;">Schiefer</MudChip>
+                    </MudStack>
+                </MudItem>
+
+                <MudItem xs="12" md="6">
+                    <MudText Typo="Typo.subtitle2" Class="mb-2">Akzentfarbe</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-3">
+                        Wird sparsam zur Betonung eingesetzt.
+                    </MudText>
+
+                    <MudColorPicker @bind-Value="_accentColorValue"
+                                   ColorPickerMode="ColorPickerMode.RGB"
+                                   DisableAlpha="true"
+                                   Placeholder="Farbe wählen"
+                                   Class="mb-3" />
+
+                    <MudText Typo="Typo.caption" Class="mb-2">Vorschläge:</MudText>
+                    <MudStack Row="true" Spacing="2" Wrap="Wrap.Wrap">
+                        <MudChip T="string" Size="Size.Small" OnClick='() => SetAccentColor("#3FA796")'
+                                Style="background-color: #3FA796; color: white;">Salzgrün</MudChip>
+                        <MudChip T="string" Size="Size.Small" OnClick='() => SetAccentColor("#6b7280")'
+                                Style="background-color: #6b7280; color: white;">Hellgrau</MudChip>
+                        <MudChip T="string" Size="Size.Small" OnClick='() => SetAccentColor("#3b82f6")'
+                                Style="background-color: #3b82f6; color: white;">Mittelblau</MudChip>
+                        <MudChip T="string" Size="Size.Small" OnClick='() => SetAccentColor("#ea580c")'
+                                Style="background-color: #ea580c; color: white;">Orange</MudChip>
+                        <MudChip T="string" Size="Size.Small" OnClick='() => SetAccentColor("#16a34a")'
+                                Style="background-color: #16a34a; color: white;">Grün</MudChip>
+                        <MudChip T="string" Size="Size.Small" OnClick='() => SetAccentColor("#7c3aed")'
+                                Style="background-color: #7c3aed; color: white;">Violett</MudChip>
+                    </MudStack>
+                </MudItem>
+            </MudGrid>
+
+            @if (_company.EmailPrimaryColor == _company.EmailAccentColor)
+            {
+                <MudAlert Severity="Severity.Warning" Class="mt-3">
+                    Primär- und Akzentfarbe sollten sich unterscheiden.
+                </MudAlert>
+            }
+
+            <!-- Textanpassung -->
+            <MudText Typo="Typo.h6" Class="mt-6 mb-3">Textanpassung</MudText>
+            <MudGrid>
+                <MudItem xs="12">
+                    <MudTextField Label="Begrüßungsformel"
+                                 @bind-Value="_company.EmailGreeting"
+                                 Lines="4"
+                                 Placeholder="Sehr geehrte Damen und Herren,&#10;&#10;anbei erhalten Sie Ihre Rechnung."
+                                 HelperText="Max. 500 Zeichen"
+                                 Counter="500"
+                                 MaxLength="500" />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudTextField Label="Abschiedsformel"
+                                 @bind-Value="_company.EmailClosing"
+                                 Lines="4"
+                                 Placeholder="Mit freundlichen Grüßen&#10;&#10;{{Firmenname}}"
+                                 HelperText="Max. 500 Zeichen"
+                                 Counter="500"
+                                 MaxLength="500" />
+                </MudItem>
+            </MudGrid>
+
+            <MudAlert Severity="Severity.Info" Class="mt-3">
+                <strong>Verfügbare Platzhalter:</strong><br />
+                <code>{{Firmenname}}</code> - Ihr Firmenname<br />
+                <code>{{Rechnungsnummer}}</code> - Rechnungsnummer<br />
+                <code>{{Faelligkeitsdatum}}</code> - Fälligkeitsdatum<br /><br />
+                <MudText Typo="Typo.caption">Platzhalter werden beim Versand automatisch ersetzt.</MudText>
+            </MudAlert>
+
+            <!-- Aktionen -->
+            <MudStack Row="true" Justify="Justify.SpaceBetween" Class="mt-6">
+                <MudButton Variant="Variant.Text"
+                          Color="Color.Default"
+                          OnClick="ResetToDefaults">
+                    Auf Standard zurücksetzen
+                </MudButton>
+                <MudButton ButtonType="ButtonType.Button"
+                          Variant="Variant.Filled"
+                          Color="Color.Primary"
+                          Disabled="@_saving"
+                          OnClick="HandleSubmit">
+                    @if (_saving)
+                    {
+                        <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                        <MudText Class="ms-2">Speichern...</MudText>
+                    }
+                    else
+                    {
+                        <MudText>Speichern</MudText>
+                    }
+                </MudButton>
+            </MudStack>
+        }
+            </MudPaper>
+        </div>
+
+        <!-- Settings Panel - Desktop only -->
+        <div style="flex: 0 0 45%; max-width: 45%;" class="d-none d-lg-block">
+            <MudPaper Elevation="2" Class="pa-6">
+        <MudText Typo="Typo.h4" GutterBottom="true">E-Mail-Anpassung</MudText>
+        <MudText Typo="Typo.body1" Color="Color.Secondary" Class="mb-6">
+            Passen Sie das Erscheinungsbild Ihrer Rechnungs-E-Mails an, ohne dabei den klaren Charakter zu verlieren.
+        </MudText>
+
+        @if (_loading)
+        {
+            <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+        }
+        else
+        {
+            <!-- Layout-Auswahl -->
+            <MudText Typo="Typo.h6" Class="mt-6 mb-3">Layout</MudText>
+            <MudRadioGroup @bind-Value="_company.EmailLayout">
+                <MudCard Outlined="true" Class="mb-3" Style="@(_company.EmailLayout == EmailLayout.Klar ? "border: 2px solid var(--mud-palette-primary);" : "")">
+                    <MudCardContent>
+                        <MudRadio Value="EmailLayout.Klar" Color="Color.Primary">
+                            <MudText Typo="Typo.h6">Klar <MudChip T="string" Size="Size.Small" Variant="Variant.Text">Default</MudChip></MudText>
+                        </MudRadio>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="ml-8">
+                            Reduziert, sachlich, ohne visuelle Trennung. Text-dominiert mit maximaler Lesbarkeit.
+                        </MudText>
+                    </MudCardContent>
+                </MudCard>
+
+                <MudCard Outlined="true" Class="mb-3" Style="@(_company.EmailLayout == EmailLayout.Strukturiert ? "border: 2px solid var(--mud-palette-primary);" : "")">
+                    <MudCardContent>
+                        <MudRadio Value="EmailLayout.Strukturiert" Color="Color.Primary">
+                            <MudText Typo="Typo.h6">Strukturiert</MudText>
+                        </MudRadio>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="ml-8">
+                            Mit klaren Abschnitten und dezenter Hervorhebung. Rechnungsdaten in einer Box mit Trennlinien.
+                        </MudText>
+                    </MudCardContent>
+                </MudCard>
+
+                <MudCard Outlined="true" Class="mb-3" Style="@(_company.EmailLayout == EmailLayout.Betont ? "border: 2px solid var(--mud-palette-primary);" : "")">
+                    <MudCardContent>
+                        <MudRadio Value="EmailLayout.Betont" Color="Color.Primary">
+                            <MudText Typo="Typo.h6">Betont</MudText>
+                        </MudRadio>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="ml-8">
+                            Mehr visuelle Führung, aber weiterhin zurückhaltend. Farbiger Header und hervorgehobener Betrag.
+                        </MudText>
+                    </MudCardContent>
+                </MudCard>
+            </MudRadioGroup>
+
+            <!-- Farben -->
+            <MudText Typo="Typo.h6" Class="mt-6 mb-3">Farben</MudText>
+            <MudGrid>
+                <MudItem xs="12" md="6">
+                    <MudText Typo="Typo.subtitle2" Class="mb-2">Primärfarbe</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-3">
+                        Wird für Überschriften und Hervorhebungen verwendet.
+                    </MudText>
+
+                    <MudColorPicker @bind-Value="_primaryColorValue"
+                                   ColorPickerMode="ColorPickerMode.RGB"
+                                   DisableAlpha="true"
+                                   Placeholder="Farbe wählen"
+                                   Class="mb-3" />
+
+                    <MudText Typo="Typo.caption" Class="mb-2">Vorschläge:</MudText>
+                    <MudStack Row="true" Spacing="2" Wrap="Wrap.Wrap">
+                        <MudChip T="string" Size="Size.Small" OnClick='() => SetPrimaryColor("#0F2A3D")'
+                                Style="background-color: #0F2A3D; color: white;">Küstencode Primär</MudChip>
+                        <MudChip T="string" Size="Size.Small" OnClick='() => SetPrimaryColor("#1f3a5f")'
+                                Style="background-color: #1f3a5f; color: white;">Nordisch Blau</MudChip>
+                        <MudChip T="string" Size="Size.Small" OnClick='() => SetPrimaryColor("#374151")'
+                                Style="background-color: #374151; color: white;">Anthrazit</MudChip>
+                        <MudChip T="string" Size="Size.Small" OnClick='() => SetPrimaryColor("#065f46")'
+                                Style="background-color: #065f46; color: white;">Dunkelgrün</MudChip>
+                        <MudChip T="string" Size="Size.Small" OnClick='() => SetPrimaryColor("#0c4a6e")'
+                                Style="background-color: #0c4a6e; color: white;">Tiefseeblau</MudChip>
+                        <MudChip T="string" Size="Size.Small" OnClick='() => SetPrimaryColor("#334155")'
+                                Style="background-color: #334155; color: white;">Schiefer</MudChip>
+                    </MudStack>
+                </MudItem>
+
+                <MudItem xs="12" md="6">
+                    <MudText Typo="Typo.subtitle2" Class="mb-2">Akzentfarbe</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-3">
+                        Wird sparsam zur Betonung eingesetzt.
+                    </MudText>
+
+                    <MudColorPicker @bind-Value="_accentColorValue"
+                                   ColorPickerMode="ColorPickerMode.RGB"
+                                   DisableAlpha="true"
+                                   Placeholder="Farbe wählen"
+                                   Class="mb-3" />
+
+                    <MudText Typo="Typo.caption" Class="mb-2">Vorschläge:</MudText>
+                    <MudStack Row="true" Spacing="2" Wrap="Wrap.Wrap">
+                        <MudChip T="string" Size="Size.Small" OnClick='() => SetAccentColor("#3FA796")'
+                                Style="background-color: #3FA796; color: white;">Salzgrün</MudChip>
+                        <MudChip T="string" Size="Size.Small" OnClick='() => SetAccentColor("#6b7280")'
+                                Style="background-color: #6b7280; color: white;">Hellgrau</MudChip>
+                        <MudChip T="string" Size="Size.Small" OnClick='() => SetAccentColor("#3b82f6")'
+                                Style="background-color: #3b82f6; color: white;">Mittelblau</MudChip>
+                        <MudChip T="string" Size="Size.Small" OnClick='() => SetAccentColor("#ea580c")'
+                                Style="background-color: #ea580c; color: white;">Orange</MudChip>
+                        <MudChip T="string" Size="Size.Small" OnClick='() => SetAccentColor("#16a34a")'
+                                Style="background-color: #16a34a; color: white;">Grün</MudChip>
+                        <MudChip T="string" Size="Size.Small" OnClick='() => SetAccentColor("#7c3aed")'
+                                Style="background-color: #7c3aed; color: white;">Violett</MudChip>
+                    </MudStack>
+                </MudItem>
+            </MudGrid>
+
+            @if (_company.EmailPrimaryColor == _company.EmailAccentColor)
+            {
+                <MudAlert Severity="Severity.Warning" Class="mt-3">
+                    Primär- und Akzentfarbe sollten sich unterscheiden.
+                </MudAlert>
+            }
+
+            <!-- Textanpassung -->
+            <MudText Typo="Typo.h6" Class="mt-6 mb-3">Textanpassung</MudText>
+            <MudGrid>
+                <MudItem xs="12">
+                    <MudTextField Label="Begrüßungsformel"
+                                 @bind-Value="_company.EmailGreeting"
+                                 Lines="4"
+                                 Placeholder="Sehr geehrte Damen und Herren,&#10;&#10;anbei erhalten Sie Ihre Rechnung."
+                                 HelperText="Max. 500 Zeichen"
+                                 Counter="500"
+                                 MaxLength="500" />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudTextField Label="Abschiedsformel"
+                                 @bind-Value="_company.EmailClosing"
+                                 Lines="4"
+                                 Placeholder="Mit freundlichen Grüßen&#10;&#10;{{Firmenname}}"
+                                 HelperText="Max. 500 Zeichen"
+                                 Counter="500"
+                                 MaxLength="500" />
+                </MudItem>
+            </MudGrid>
+
+            <MudAlert Severity="Severity.Info" Class="mt-3">
+                <strong>Verfügbare Platzhalter:</strong><br />
+                <code>{{Firmenname}}</code> - Ihr Firmenname<br />
+                <code>{{Rechnungsnummer}}</code> - Rechnungsnummer<br />
+                <code>{{Faelligkeitsdatum}}</code> - Fälligkeitsdatum<br /><br />
+                <MudText Typo="Typo.caption">Platzhalter werden beim Versand automatisch ersetzt.</MudText>
+            </MudAlert>
+
+            <!-- Aktionen -->
+            <MudStack Row="true" Justify="Justify.SpaceBetween" Class="mt-6">
+                <MudButton Variant="Variant.Text"
+                          Color="Color.Default"
+                          OnClick="ResetToDefaults">
+                    Auf Standard zurücksetzen
+                </MudButton>
+                <MudButton ButtonType="ButtonType.Button"
+                          Variant="Variant.Filled"
+                          Color="Color.Primary"
+                          Disabled="@_saving"
+                          OnClick="HandleSubmit">
+                    @if (_saving)
+                    {
+                        <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                        <MudText Class="ms-2">Speichern...</MudText>
+                    }
+                    else
+                    {
+                        <MudText>Speichern</MudText>
+                    }
+                </MudButton>
+            </MudStack>
+        }
+            </MudPaper>
+        </div>
+
+        <!-- Live Preview Panel -->
+        <div style="flex: 0 0 100%; max-width: 100%;" class="d-lg-none">
+            <MudPaper Elevation="2" Class="pa-6">
+                <MudText Typo="Typo.h6" Class="mb-3">Live-Vorschau</MudText>
+                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-4">
+                    Beispiel-E-Mail mit aktuellen Einstellungen
+                </MudText>
+
+                @if (!_loading)
+                {
+                    <div style="max-height: 100vh; overflow-y: auto;">
+                        <EmailPreview Company="_company" />
+                    </div>
+                }
+            </MudPaper>
+        </div>
+
+        <!-- Live Preview Panel - Desktop only -->
+        <div style="flex: 0 0 45%; max-width: 45%;" class="d-none d-lg-block">
+            <div style="position: sticky; top: 20px;">
+                <MudPaper Elevation="2" Class="pa-6">
+                    <MudText Typo="Typo.h6" Class="mb-3">Live-Vorschau</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-4">
+                        Beispiel-E-Mail mit aktuellen Einstellungen
+                    </MudText>
+
+                    @if (!_loading)
+                    {
+                        <div style="max-height: calc(100vh - 200px); overflow-y: auto;">
+                            <EmailPreview Company="_company" />
+                        </div>
+                    }
+                </MudPaper>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private Company _company = new();
+    private bool _loading = true;
+    private bool _saving = false;
+    private MudBlazor.Utilities.MudColor _primaryColorValue;
+    private MudBlazor.Utilities.MudColor _accentColorValue;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _company = await CompanyService.GetCompanyAsync();
+            _primaryColorValue = new MudBlazor.Utilities.MudColor(_company.EmailPrimaryColor);
+            _accentColorValue = new MudBlazor.Utilities.MudColor(_company.EmailAccentColor);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler beim Laden: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            _company.EmailPrimaryColor = _primaryColorValue.ToString(MudBlazor.Utilities.MudColorOutputFormats.Hex);
+            _company.EmailAccentColor = _accentColorValue.ToString(MudBlazor.Utilities.MudColorOutputFormats.Hex);
+        }
+    }
+
+    private void SetPrimaryColor(string color)
+    {
+        _primaryColorValue = new MudBlazor.Utilities.MudColor(color);
+        _company.EmailPrimaryColor = color;
+    }
+
+    private void SetAccentColor(string color)
+    {
+        _accentColorValue = new MudBlazor.Utilities.MudColor(color);
+        _company.EmailAccentColor = color;
+    }
+
+    private async Task HandleSubmit()
+    {
+        _saving = true;
+        try
+        {
+            // Update colors from pickers
+            _company.EmailPrimaryColor = _primaryColorValue.ToString(MudBlazor.Utilities.MudColorOutputFormats.Hex);
+            _company.EmailAccentColor = _accentColorValue.ToString(MudBlazor.Utilities.MudColorOutputFormats.Hex);
+
+            await CompanyService.UpdateCompanyAsync(_company);
+            Snackbar.Add("E-Mail-Anpassungen gespeichert", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler beim Speichern: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private async Task ResetToDefaults()
+    {
+        var result = await DialogService.ShowMessageBox(
+            "Auf Standard zurücksetzen",
+            "Möchten Sie wirklich alle E-Mail-Anpassungen auf die Standardwerte zurücksetzen?",
+            yesText: "Ja, zurücksetzen",
+            cancelText: "Abbrechen");
+
+        if (result == true)
+        {
+            _company.EmailLayout = EmailLayout.Klar;
+            _company.EmailPrimaryColor = "#0F2A3D";
+            _company.EmailAccentColor = "#3FA796";
+            _company.EmailGreeting = "Sehr geehrte Damen und Herren,\n\nanbei erhalten Sie Ihre Rechnung.";
+            _company.EmailClosing = "Mit freundlichen Grüßen\n\n{{Firmenname}}";
+
+            _primaryColorValue = new MudBlazor.Utilities.MudColor(_company.EmailPrimaryColor);
+            _accentColorValue = new MudBlazor.Utilities.MudColor(_company.EmailAccentColor);
+
+            Snackbar.Add("Auf Standardwerte zurückgesetzt", Severity.Info);
+        }
+    }
+}

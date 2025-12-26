@@ -1,0 +1,134 @@
+@page "/customers/create"
+@using InvoiceApp.Services
+@using InvoiceApp.Models
+@using System.ComponentModel.DataAnnotations
+@inject ICustomerService CustomerService
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+
+<PageTitle>Neuer Kunde - Küstencode Faktura</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Medium" Class="mt-4">
+    <MudPaper Class="pa-4">
+        <MudText Typo="Typo.h4" GutterBottom="true">Neuer Kunde</MudText>
+
+        @if (!string.IsNullOrEmpty(_errorMessage))
+        {
+            <MudAlert Severity="Severity.Error" Class="my-4">@_errorMessage</MudAlert>
+        }
+
+        <EditForm Model="@_customer" OnValidSubmit="HandleSubmit">
+            <DataAnnotationsValidator />
+
+            <MudGrid>
+                <MudItem xs="12" sm="6">
+                    <MudTextField Label="Kundennummer" @bind-Value="_customer.CustomerNumber"
+                                 For="@(() => _customer.CustomerNumber)" ReadOnly="true"
+                                 Helpertext="Wird automatisch generiert" />
+                </MudItem>
+                <MudItem xs="12" sm="6"></MudItem>
+
+                <MudItem xs="12">
+                    <MudTextField Label="Name" @bind-Value="_customer.Name"
+                                 For="@(() => _customer.Name)" Required="true" />
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudTextField Label="Adresse" @bind-Value="_customer.Address"
+                                 For="@(() => _customer.Address)" Lines="3" Required="true" />
+                </MudItem>
+
+                <MudItem xs="12" sm="4">
+                    <MudTextField Label="Postleitzahl" @bind-Value="_customer.PostalCode"
+                                 For="@(() => _customer.PostalCode)" Required="true" />
+                </MudItem>
+
+                <MudItem xs="12" sm="8">
+                    <MudTextField Label="Stadt" @bind-Value="_customer.City"
+                                 For="@(() => _customer.City)" Required="true" />
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudTextField Label="Land" @bind-Value="_customer.Country"
+                                 For="@(() => _customer.Country)" />
+                </MudItem>
+
+                <MudItem xs="12" sm="6">
+                    <MudTextField Label="Email" @bind-Value="_customer.Email"
+                                 For="@(() => _customer.Email)" InputType="InputType.Email" />
+                </MudItem>
+
+                <MudItem xs="12" sm="6">
+                    <MudTextField Label="Telefon" @bind-Value="_customer.Phone"
+                                 For="@(() => _customer.Phone)" />
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudTextField Label="Notizen" @bind-Value="_customer.Notes"
+                                 For="@(() => _customer.Notes)" Lines="4" />
+                </MudItem>
+
+                <MudItem xs="12" Class="d-flex justify-end gap-2">
+                    <MudButton Variant="Variant.Filled" Color="Color.Default"
+                              OnClick="Cancel">Abbrechen</MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                              ButtonType="ButtonType.Submit" Disabled="@_saving">
+                        @if (_saving)
+                        {
+                            <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                            <MudText Class="ms-2">Speichert...</MudText>
+                        }
+                        else
+                        {
+                            <MudText>Speichern</MudText>
+                        }
+                    </MudButton>
+                </MudItem>
+            </MudGrid>
+        </EditForm>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private Customer _customer = new() { Country = "Deutschland" };
+    private bool _saving = false;
+    private string? _errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _customer.CustomerNumber = await CustomerService.GenerateCustomerNumberAsync();
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Fehler beim Generieren der Kundennummer: {ex.Message}";
+        }
+    }
+
+    private async Task HandleSubmit()
+    {
+        _saving = true;
+        _errorMessage = null;
+
+        try
+        {
+            await CustomerService.CreateAsync(_customer);
+            Snackbar.Add($"Kunde '{_customer.Name}' wurde erfolgreich erstellt.", Severity.Success);
+            NavigationManager.NavigateTo("/customers");
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Fehler beim Speichern: {ex.Message}";
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private void Cancel()
+    {
+        NavigationManager.NavigateTo("/customers");
+    }
+}

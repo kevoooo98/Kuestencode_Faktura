@@ -1,0 +1,193 @@
+@page "/customers/edit/{Id:int}"
+@using InvoiceApp.Services
+@using InvoiceApp.Models
+@using System.ComponentModel.DataAnnotations
+@inject ICustomerService CustomerService
+@inject NavigationManager NavigationManager
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<PageTitle>Kunde bearbeiten - Küstencode Faktura</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Medium" Class="mt-4">
+    @if (_loading)
+    {
+        <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+    }
+    else if (_customer == null)
+    {
+        <MudAlert Severity="Severity.Error">Kunde nicht gefunden.</MudAlert>
+    }
+    else
+    {
+        <MudPaper Class="pa-4">
+            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
+                <MudText Typo="Typo.h4">Kunde bearbeiten</MudText>
+                <MudButton Variant="Variant.Filled" Color="Color.Error"
+                          StartIcon="@Icons.Material.Filled.Delete"
+                          OnClick="DeleteCustomer">
+                    Kunde löschen
+                </MudButton>
+            </MudStack>
+
+            @if (!string.IsNullOrEmpty(_errorMessage))
+            {
+                <MudAlert Severity="Severity.Error" Class="my-4">@_errorMessage</MudAlert>
+            }
+
+            <EditForm Model="@_customer" OnValidSubmit="HandleSubmit">
+                <DataAnnotationsValidator />
+
+                <MudGrid>
+                    <MudItem xs="12" sm="6">
+                        <MudTextField Label="Kundennummer" @bind-Value="_customer.CustomerNumber"
+                                     For="@(() => _customer.CustomerNumber)" ReadOnly="true" />
+                    </MudItem>
+                    <MudItem xs="12" sm="6"></MudItem>
+
+                    <MudItem xs="12">
+                        <MudTextField Label="Name" @bind-Value="_customer.Name"
+                                     For="@(() => _customer.Name)" Required="true" />
+                    </MudItem>
+
+                    <MudItem xs="12">
+                        <MudTextField Label="Adresse" @bind-Value="_customer.Address"
+                                     For="@(() => _customer.Address)" Lines="3" Required="true" />
+                    </MudItem>
+
+                    <MudItem xs="12" sm="4">
+                        <MudTextField Label="Postleitzahl" @bind-Value="_customer.PostalCode"
+                                     For="@(() => _customer.PostalCode)" Required="true" />
+                    </MudItem>
+
+                    <MudItem xs="12" sm="8">
+                        <MudTextField Label="Stadt" @bind-Value="_customer.City"
+                                     For="@(() => _customer.City)" Required="true" />
+                    </MudItem>
+
+                    <MudItem xs="12">
+                        <MudTextField Label="Land" @bind-Value="_customer.Country"
+                                     For="@(() => _customer.Country)" />
+                    </MudItem>
+
+                    <MudItem xs="12" sm="6">
+                        <MudTextField Label="Email" @bind-Value="_customer.Email"
+                                     For="@(() => _customer.Email)" InputType="InputType.Email" />
+                    </MudItem>
+
+                    <MudItem xs="12" sm="6">
+                        <MudTextField Label="Telefon" @bind-Value="_customer.Phone"
+                                     For="@(() => _customer.Phone)" />
+                    </MudItem>
+
+                    <MudItem xs="12">
+                        <MudTextField Label="Notizen" @bind-Value="_customer.Notes"
+                                     For="@(() => _customer.Notes)" Lines="4" />
+                    </MudItem>
+
+                    <MudItem xs="12" Class="d-flex justify-end gap-2">
+                        <MudButton Variant="Variant.Filled" Color="Color.Default"
+                                  OnClick="Cancel">Abbrechen</MudButton>
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                                  ButtonType="ButtonType.Submit" Disabled="@_saving">
+                            @if (_saving)
+                            {
+                                <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                                <MudText Class="ms-2">Speichert...</MudText>
+                            }
+                            else
+                            {
+                                <MudText>Speichern</MudText>
+                            }
+                        </MudButton>
+                    </MudItem>
+                </MudGrid>
+            </EditForm>
+        </MudPaper>
+    }
+</MudContainer>
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private Customer? _customer;
+    private bool _loading = true;
+    private bool _saving = false;
+    private string? _errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadCustomer();
+    }
+
+    private async Task LoadCustomer()
+    {
+        _loading = true;
+        try
+        {
+            _customer = await CustomerService.GetByIdAsync(Id);
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Fehler beim Laden des Kunden: {ex.Message}";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task HandleSubmit()
+    {
+        if (_customer == null) return;
+
+        _saving = true;
+        _errorMessage = null;
+
+        try
+        {
+            await CustomerService.UpdateAsync(_customer);
+            Snackbar.Add($"Kunde '{_customer.Name}' wurde erfolgreich aktualisiert.", Severity.Success);
+            NavigationManager.NavigateTo("/customers");
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Fehler beim Speichern: {ex.Message}";
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private async Task DeleteCustomer()
+    {
+        if (_customer == null) return;
+
+        bool? result = await DialogService.ShowMessageBox(
+            "Kunde löschen",
+            $"Möchten Sie den Kunden '{_customer.Name}' wirklich löschen?",
+            yesText: "Löschen",
+            cancelText: "Abbrechen");
+
+        if (result == true)
+        {
+            try
+            {
+                await CustomerService.DeleteAsync(_customer.Id);
+                Snackbar.Add($"Kunde '{_customer.Name}' wurde gelöscht.", Severity.Success);
+                NavigationManager.NavigateTo("/customers");
+            }
+            catch (Exception ex)
+            {
+                _errorMessage = $"Fehler beim Löschen: {ex.Message}";
+            }
+        }
+    }
+
+    private void Cancel()
+    {
+        NavigationManager.NavigateTo("/customers");
+    }
+}

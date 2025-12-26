@@ -1,0 +1,267 @@
+@using InvoiceApp.Models
+@using InvoiceApp.Services
+@using MudBlazor
+@inject IXRechnungService XRechnungService
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <DialogContent>
+        <MudStack Spacing="3">
+            <MudText>Rechnung <strong>@Invoice?.InvoiceNumber</strong> per E-Mail versenden</MudText>
+
+            <MudTextField @bind-Value="_recipientEmail"
+                          Label="Empfänger E-Mail"
+                          Variant="Variant.Outlined"
+                          Required="true"
+                          Validation="@(new Func<string, string?>(ValidateEmail))"
+                          Immediate="true" />
+
+            <MudTextField @bind-Value="_customMessage"
+                          Label="Persönliche Nachricht (optional)"
+                          Variant="Variant.Outlined"
+                          Lines="4"
+                          Placeholder="Fügen Sie hier eine persönliche Nachricht ein (optional)" />
+
+            <MudRadioGroup @bind-Value="_selectedFormat" T="EmailAttachmentFormat">
+                <MudText Typo="Typo.subtitle2" Class="mb-2">Anhang-Format:</MudText>
+
+                <MudRadio Value="@EmailAttachmentFormat.NormalPdf" Color="Color.Primary">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                        <MudIcon Icon="@Icons.Material.Filled.PictureAsPdf" Size="Size.Small" />
+                        <MudText>Normal PDF</MudText>
+                    </MudStack>
+                    <MudText Typo="Typo.caption" Class="ml-6">Standard-Rechnung als PDF</MudText>
+                </MudRadio>
+
+                <MudRadio Value="@EmailAttachmentFormat.ZugferdPdf"
+                          Color="Color.Primary"
+                          Disabled="@(!_isXRechnungValid)">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                        <MudIcon Icon="@Icons.Material.Filled.IntegrationInstructions" Size="Size.Small" />
+                        <MudText>ZUGFeRD PDF</MudText>
+                        @if (!_isXRechnungValid)
+                        {
+                            <MudChip T="string" Size="Size.Small" Color="Color.Warning">Validierung erforderlich</MudChip>
+                        }
+                    </MudStack>
+                    <MudText Typo="Typo.caption" Class="ml-6">Hybrid-PDF mit eingebettetem XML</MudText>
+                </MudRadio>
+
+                <MudRadio Value="@EmailAttachmentFormat.XRechnungXmlOnly"
+                          Color="Color.Primary"
+                          Disabled="@(!_isXRechnungValid)">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                        <MudIcon Icon="@Icons.Material.Filled.Code" Size="Size.Small" />
+                        <MudText>XRechnung (nur XML)</MudText>
+                        @if (!_isXRechnungValid)
+                        {
+                            <MudChip T="string" Size="Size.Small" Color="Color.Warning">Validierung erforderlich</MudChip>
+                        }
+                    </MudStack>
+                    <MudText Typo="Typo.caption" Class="ml-6">Nur XML-Datei</MudText>
+                </MudRadio>
+
+                <MudRadio Value="@EmailAttachmentFormat.XRechnungXmlAndPdf"
+                          Color="Color.Primary"
+                          Disabled="@(!_isXRechnungValid)">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                        <MudIcon Icon="@Icons.Material.Filled.FolderOpen" Size="Size.Small" />
+                        <MudText>XRechnung (XML + PDF)</MudText>
+                        @if (!_isXRechnungValid)
+                        {
+                            <MudChip T="string" Size="Size.Small" Color="Color.Warning">Validierung erforderlich</MudChip>
+                        }
+                    </MudStack>
+                    <MudText Typo="Typo.caption" Class="ml-6">XML und PDF als Anhänge</MudText>
+                </MudRadio>
+            </MudRadioGroup>
+
+            @if (!_isXRechnungValid && _validationErrors.Any())
+            {
+                <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-2">
+                    <MudText Typo="Typo.body2"><strong>XRechnung-Validierung fehlgeschlagen:</strong></MudText>
+                    <MudList T="string" Dense="true" DisablePadding="true">
+                        @foreach (var error in _validationErrors)
+                        {
+                            <MudListItem T="string" Dense="true">
+                                <MudText Typo="Typo.caption">• @error</MudText>
+                            </MudListItem>
+                        }
+                    </MudList>
+                    <MudText Typo="Typo.caption" Class="mt-1">
+                        Bitte ergänzen Sie die Daten in den
+                        <MudLink Href="/settings/company">Firmeneinstellungen</MudLink> oder
+                        <MudLink Href="/customers">Kundendaten</MudLink>.
+                    </MudText>
+                </MudAlert>
+            }
+
+            <MudAlert Severity="Severity.Info" Dense="true">
+                @if (_selectedFormat == EmailAttachmentFormat.NormalPdf)
+                {
+                    <text>Die Rechnung wird als PDF-Anhang versendet.</text>
+                }
+                else if (_selectedFormat == EmailAttachmentFormat.ZugferdPdf)
+                {
+                    <text>Die Rechnung wird als ZUGFeRD-PDF (Hybrid mit XML) versendet.</text>
+                }
+                else if (_selectedFormat == EmailAttachmentFormat.XRechnungXmlOnly)
+                {
+                    <text>Die Rechnung wird als XRechnung-XML Datei versendet.</text>
+                }
+                else if (_selectedFormat == EmailAttachmentFormat.XRechnungXmlAndPdf)
+                {
+                    <text>Die Rechnung wird als XRechnung-XML und PDF versendet.</text>
+                }
+
+                @if (Invoice?.Status == InvoiceStatus.Draft)
+                {
+                    <text> Der Status wird automatisch auf "Versendet" geändert.</text>
+                }
+            </MudAlert>
+
+            @if (Invoice?.EmailSendCount > 0 && Invoice.EmailSentAt.HasValue)
+            {
+                <MudAlert Severity="Severity.Warning" Dense="true">
+                    Zuletzt versendet am @Invoice.EmailSentAt.Value.ToLocalTime().ToString("dd.MM.yyyy") um @Invoice.EmailSentAt.Value.ToLocalTime().ToString("HH:mm") Uhr
+                    an @Invoice.EmailSentTo (@Invoice.EmailSendCount mal versendet)
+                </MudAlert>
+            }
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel" Variant="Variant.Text">Abbrechen</MudButton>
+        <MudButton OnClick="Send"
+                   Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   Disabled="@(_sending || !IsValidEmail(_recipientEmail))"
+                   StartIcon="@Icons.Material.Filled.Send">
+            @if (_sending)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" />
+                <span class="ml-2">Wird versendet...</span>
+            }
+            else
+            {
+                <span>Versenden</span>
+            }
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    public IMudDialogInstance MudDialog { get; set; } = null!;
+
+    [Parameter]
+    public Invoice? Invoice { get; set; }
+
+    [Parameter]
+    public string? CustomerEmail { get; set; }
+
+    [Parameter]
+    public EventCallback<(string Email, string? Message, EmailAttachmentFormat Format)> OnSend { get; set; }
+
+    private string _recipientEmail = string.Empty;
+    private string _customMessage = string.Empty;
+    private bool _sending = false;
+    private EmailAttachmentFormat _selectedFormat = EmailAttachmentFormat.NormalPdf;
+    private bool _isXRechnungValid = false;
+    private List<string> _validationErrors = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        _recipientEmail = CustomerEmail ?? string.Empty;
+        await ValidateXRechnungSupport();
+    }
+
+    private async Task ValidateXRechnungSupport()
+    {
+        if (Invoice == null) return;
+
+        try
+        {
+            var (isValid, missingFields) = await XRechnungService.ValidateForXRechnungAsync(Invoice.Id);
+            _isXRechnungValid = isValid;
+            _validationErrors = missingFields;
+
+            if (!_isXRechnungValid && _selectedFormat != EmailAttachmentFormat.NormalPdf)
+            {
+                _selectedFormat = EmailAttachmentFormat.NormalPdf;
+            }
+        }
+        catch (Exception ex)
+        {
+            _isXRechnungValid = false;
+            _validationErrors = new List<string> { $"Validierungsfehler: {ex.Message}" };
+        }
+    }
+
+    private void Cancel()
+    {
+        MudDialog.Cancel();
+    }
+
+    private async Task Send()
+    {
+        if (string.IsNullOrWhiteSpace(_recipientEmail) || !IsValidEmail(_recipientEmail))
+        {
+            return;
+        }
+
+        if (_selectedFormat != EmailAttachmentFormat.NormalPdf && !_isXRechnungValid)
+        {
+            Snackbar.Add("XRechnung-Formate erfordern vollständige Daten.", Severity.Warning);
+            return;
+        }
+
+        _sending = true;
+        StateHasChanged();
+
+        try
+        {
+            await OnSend.InvokeAsync((
+                _recipientEmail.Trim(),
+                string.IsNullOrWhiteSpace(_customMessage) ? null : _customMessage.Trim(),
+                _selectedFormat));
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+        catch
+        {
+            _sending = false;
+            StateHasChanged();
+            throw;
+        }
+    }
+
+    private string? ValidateEmail(string email)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            return "E-Mail-Adresse ist erforderlich";
+        }
+
+        if (!IsValidEmail(email))
+        {
+            return "Ungültige E-Mail-Adresse";
+        }
+
+        return null;
+    }
+
+    private bool IsValidEmail(string email)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+            return false;
+
+        try
+        {
+            var addr = new System.Net.Mail.MailAddress(email);
+            return addr.Address == email;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+}

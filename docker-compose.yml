@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: invoiceapp_postgres
+    environment:
+      POSTGRES_DB: invoiceapp_dev
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: dev_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - invoiceapp_network
+
+  invoiceapp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: invoiceapp_web
+    ports:
+      - "8080:8080"
+      - "8081:8081"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=invoiceapp_dev;Username=postgres;Password=dev_password
+    volumes:
+      - ./data/keys:/app/data/keys
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - invoiceapp_network
+
+networks:
+  invoiceapp_network:
+    driver: bridge

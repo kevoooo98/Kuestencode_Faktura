@@ -1,0 +1,415 @@
+@page "/settings/email"
+@using InvoiceApp.Models
+@using InvoiceApp.Services
+@using Microsoft.AspNetCore.Components.Forms
+@inject ICompanyService CompanyService
+@inject IEmailService EmailService
+@inject IInvoiceService InvoiceService
+@inject PasswordEncryptionService PasswordEncryption
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<PageTitle>E-Mail-Versand - Küstencode Faktura</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+    <MudPaper Elevation="2" Class="pa-4">
+        <MudText Typo="Typo.h4" GutterBottom="true">E-Mail-Versand</MudText>
+
+        <MudAlert Severity="Severity.Info" Class="mt-4 mb-4">
+            Konfigurieren Sie hier Ihren E-Mail-Versand, um Rechnungen direkt aus der Anwendung zu versenden.
+            Falls Sie diese Funktion nicht nutzen möchten, können Sie Rechnungen weiterhin als PDF herunterladen.
+        </MudAlert>
+
+        @if (_loading)
+        {
+            <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+        }
+        else
+        {
+            <EditForm Model="@_company" OnValidSubmit="HandleSubmit">
+                <DataAnnotationsValidator />
+
+                @if (!string.IsNullOrEmpty(_errorMessage))
+                {
+                    <MudAlert Severity="Severity.Error" Class="my-2">@_errorMessage</MudAlert>
+                }
+
+                @if (!string.IsNullOrEmpty(_successMessage))
+                {
+                    <MudAlert Severity="Severity.Success" Class="my-2">@_successMessage</MudAlert>
+                }
+
+                <!-- SMTP-Einstellungen -->
+                <MudText Typo="Typo.h6" Class="mt-4 mb-2">SMTP-Einstellungen</MudText>
+
+                <MudGrid>
+                    <MudItem xs="12" md="8">
+                        <MudTextField @bind-Value="_company.SmtpHost"
+                                      Label="SMTP-Server Ihres E-Mail-Anbieters"
+                                      Variant="Variant.Outlined"
+                                      Placeholder="z.B. smtp.gmail.com"
+                                      For="@(() => _company.SmtpHost)" />
+                    </MudItem>
+                    <MudItem xs="12" md="4">
+                        <MudNumericField @bind-Value="_company.SmtpPort"
+                                         Label="Port"
+                                         Variant="Variant.Outlined"
+                                         Placeholder="587"
+                                         Min="1"
+                                         Max="65535"
+                                         For="@(() => _company.SmtpPort)" />
+                    </MudItem>
+                </MudGrid>
+
+                <MudCheckBox @bind-Value="_company.SmtpUseSsl"
+                             Label="Sichere Verbindung (SSL/TLS)"
+                             Color="Color.Primary"
+                             Class="mt-2" />
+
+                <!-- Zugangsdaten -->
+                <MudText Typo="Typo.h6" Class="mt-6 mb-2">Zugangsdaten</MudText>
+
+                <MudTextField @bind-Value="_company.SmtpUsername"
+                              Label="E-Mail-Adresse / Benutzername"
+                              Variant="Variant.Outlined"
+                              Placeholder="ihre-email@beispiel.de"
+                              Class="mb-4"
+                              For="@(() => _company.SmtpUsername)" />
+
+                <MudTextField @bind-Value="_passwordFieldValue"
+                              Label="Passwort"
+                              Variant="Variant.Outlined"
+                              InputType="InputType.Password"
+                              Placeholder="••••••••"
+                              HelperText="Wird verschlüsselt gespeichert"
+                              Class="mb-4" />
+
+                <!-- Absender-Informationen -->
+                <MudText Typo="Typo.h6" Class="mt-6 mb-2">Absender-Informationen</MudText>
+
+                <MudTextField @bind-Value="_company.EmailSenderEmail"
+                              Label="Absender-Adresse"
+                              Variant="Variant.Outlined"
+                              Placeholder="info@beispiel.de"
+                              HelperText="Wird im 'Von:'-Feld der E-Mail angezeigt"
+                              Class="mb-4"
+                              For="@(() => _company.EmailSenderEmail)" />
+
+                <MudTextField @bind-Value="_company.EmailSenderName"
+                              Label="Absender-Name"
+                              Variant="Variant.Outlined"
+                              Placeholder="Ihr Firmenname"
+                              Class="mb-4"
+                              For="@(() => _company.EmailSenderName)" />
+
+                <!-- E-Mail-Signatur (optional) -->
+                <MudText Typo="Typo.h6" Class="mt-6 mb-2">E-Mail-Signatur (optional)</MudText>
+
+                <MudTextField @bind-Value="_company.EmailSignature"
+                              Label="Persönliche E-Mail-Signatur (optional)"
+                              Variant="Variant.Outlined"
+                              Lines="4"
+                              Placeholder="Mit freundlichen Grüßen"
+                              HelperText="Wird am Ende jeder Rechnungs-E-Mail eingefügt"
+                              For="@(() => _company.EmailSignature)" />
+
+                <!-- Buttons -->
+                <MudStack Row="true" Spacing="2" Class="mt-6">
+                    <MudButton Variant="Variant.Outlined"
+                               Color="Color.Secondary"
+                               OnClick="TestConnection"
+                               Disabled="@(!IsSmtpConfigured() || _testing || _saving)">
+                        @if (_testing)
+                        {
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                            <span>Teste Verbindung...</span>
+                        }
+                        else
+                        {
+                            <span>Verbindung testen</span>
+                        }
+                    </MudButton>
+
+                    <MudButton ButtonType="ButtonType.Submit"
+                               Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               Disabled="@(_saving || _testing)">
+                        @if (_saving)
+                        {
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                            <span>Speichert...</span>
+                        }
+                        else
+                        {
+                            <span>Speichern</span>
+                        }
+                    </MudButton>
+                </MudStack>
+            </EditForm>
+
+            <!-- Hilfe-Sektion -->
+            <MudExpansionPanels MultiExpansion="true" Class="mt-8">
+                <MudExpansionPanel Text="Wie finde ich meine SMTP-Daten?" @bind-IsExpanded="_helpExpanded">
+                    <MudText Typo="Typo.body2" Class="mb-3">Gängige E-Mail-Anbieter und ihre SMTP-Einstellungen:</MudText>
+
+                    <MudSimpleTable Dense="true" Hover="true" Bordered="true">
+                        <thead>
+                            <tr>
+                                <th>Anbieter</th>
+                                <th>SMTP-Server</th>
+                                <th>Port</th>
+                                <th>SSL</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>Gmail</strong></td>
+                                <td>smtp.gmail.com</td>
+                                <td>587</td>
+                                <td>Ja</td>
+                            </tr>
+                            <tr>
+                                <td><strong>GMX</strong></td>
+                                <td>smtp.gmx.de</td>
+                                <td>587</td>
+                                <td>Ja</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Web.de</strong></td>
+                                <td>smtp.web.de</td>
+                                <td>587</td>
+                                <td>Ja</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Posteo</strong></td>
+                                <td>posteo.de</td>
+                                <td>587</td>
+                                <td>Ja</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Strato</strong></td>
+                                <td>smtp.strato.de</td>
+                                <td>465</td>
+                                <td>Ja</td>
+                            </tr>
+                            <tr>
+                                <td><strong>1&1/IONOS</strong></td>
+                                <td>smtp.ionos.de</td>
+                                <td>587</td>
+                                <td>Ja</td>
+                            </tr>
+                        </tbody>
+                    </MudSimpleTable>
+
+                    <MudAlert Severity="Severity.Warning" Class="mt-4">
+                        <strong>Wichtig: App-Passwörter verwenden!</strong><br />
+                        Aus Sicherheitsgründen akzeptieren viele E-Mail-Anbieter keine normalen Passwörter mehr für externe Anwendungen. Sie benötigen stattdessen ein <strong>App-Passwort</strong>:
+                        <br /><br />
+                        <strong>Gmail / Google Workspace:</strong><br />
+                        1. Gehen Sie zu <a href="https://myaccount.google.com/security" target="_blank">myaccount.google.com/security</a><br />
+                        2. Aktivieren Sie die 2-Faktor-Authentifizierung (falls noch nicht aktiviert)<br />
+                        3. Suchen Sie nach "App-Passwörter" oder gehen Sie zu <a href="https://myaccount.google.com/apppasswords" target="_blank">myaccount.google.com/apppasswords</a><br />
+                        4. Erstellen Sie ein neues App-Passwort für "Mail"<br />
+                        5. Verwenden Sie das generierte 16-stellige Passwort (ohne Leerzeichen) im Passwort-Feld oben<br />
+                        <br />
+                        <strong>Outlook / Microsoft 365 / Hotmail:</strong><br />
+                        1. Gehen Sie zu <a href="https://account.microsoft.com/security" target="_blank">account.microsoft.com/security</a><br />
+                        2. Aktivieren Sie die zweistufige Überprüfung (falls noch nicht aktiviert)<br />
+                        3. Klicken Sie auf "Erweiterte Sicherheitsoptionen"<br />
+                        4. Unter "App-Kennwörter" klicken Sie auf "Neues App-Kennwort erstellen"<br />
+                        5. Verwenden Sie das generierte Passwort im Passwort-Feld oben<br />
+                        <br />
+                        <strong>GMX / Web.de:</strong><br />
+                        Bei GMX und Web.de können Sie Ihr normales Passwort verwenden. Stellen Sie sicher, dass IMAP/POP3 in den E-Mail-Einstellungen aktiviert ist.
+                    </MudAlert>
+                </MudExpansionPanel>
+            </MudExpansionPanels>
+        }
+
+        <MudDivider Class="my-4" />
+
+        <MudButton Variant="Variant.Text"
+                   Color="Color.Default"
+                   StartIcon="@Icons.Material.Filled.ArrowBack"
+                   OnClick="@NavigateBack">
+            Zurück zu den Einstellungen
+        </MudButton>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private Company _company = new();
+    private bool _loading = true;
+    private bool _saving = false;
+    private bool _testing = false;
+    private string _errorMessage = string.Empty;
+    private string _successMessage = string.Empty;
+    private string _passwordFieldValue = string.Empty;
+    private bool _helpExpanded = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadCompany();
+    }
+
+    private async Task LoadCompany()
+    {
+        _loading = true;
+        try
+        {
+            _company = await CompanyService.GetCompanyAsync();
+
+            // Pre-fill EmailSenderName if empty
+            if (string.IsNullOrWhiteSpace(_company.EmailSenderName))
+            {
+                _company.EmailSenderName = _company.BusinessName ?? _company.OwnerFullName;
+            }
+
+            // Show masked password if one exists
+            if (!string.IsNullOrWhiteSpace(_company.SmtpPassword))
+            {
+                _passwordFieldValue = "••••••••";
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Fehler beim Laden der Daten: {ex.Message}";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task HandleSubmit()
+    {
+        _saving = true;
+        _errorMessage = string.Empty;
+        _successMessage = string.Empty;
+
+        try
+        {
+            // Only encrypt and update password if it was changed
+            if (_passwordFieldValue != "••••••••" && !string.IsNullOrWhiteSpace(_passwordFieldValue))
+            {
+                _company.SmtpPassword = PasswordEncryption.Encrypt(_passwordFieldValue);
+            }
+
+            await CompanyService.UpdateCompanyAsync(_company);
+            _successMessage = "E-Mail-Einstellungen erfolgreich gespeichert.";
+
+            // Reload to show masked password
+            await LoadCompany();
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Fehler beim Speichern: {ex.Message}";
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private async Task HandleSubmitAndSend()
+    {
+        await HandleSubmit();
+        if (string.IsNullOrEmpty(_errorMessage))
+        {
+            await OpenInvoiceSelectionDialog();
+        }
+    }
+
+    private async Task OpenInvoiceSelectionDialog()
+    {
+        // Lade alle Rechnungen
+        var invoices = await InvoiceService.GetAllAsync();
+
+        if (!invoices.Any())
+        {
+            Snackbar.Add("Keine Rechnungen vorhanden. Bitte erstellen Sie zuerst eine Rechnung.", Severity.Warning);
+            return;
+        }
+
+        var parameters = new DialogParameters<InvoiceSelectionDialog>
+        {
+            { x => x.Invoices, invoices }
+        };
+
+        var options = new DialogOptions
+        {
+            CloseOnEscapeKey = true,
+            MaxWidth = MaxWidth.Medium,
+            FullWidth = true
+        };
+
+        var dialog = await DialogService.ShowAsync<InvoiceSelectionDialog>("Rechnung auswählen", parameters, options);
+        var result = await dialog.Result;
+
+        if (!result.Canceled && result.Data is int selectedInvoiceId)
+        {
+            NavigationManager.NavigateTo($"/invoices/details/{selectedInvoiceId}?action=send");
+        }
+    }
+
+    private async Task TestConnection()
+    {
+        _testing = true;
+        _errorMessage = string.Empty;
+        _successMessage = string.Empty;
+
+        try
+        {
+            // Create a test company object with current values
+            var testCompany = new Company
+            {
+                SmtpHost = _company.SmtpHost,
+                SmtpPort = _company.SmtpPort,
+                SmtpUseSsl = _company.SmtpUseSsl,
+                SmtpUsername = _company.SmtpUsername,
+                SmtpPassword = _company.SmtpPassword,
+                EmailSenderEmail = _company.EmailSenderEmail
+            };
+
+            // If password was changed, encrypt it first
+            if (_passwordFieldValue != "••••••••" && !string.IsNullOrWhiteSpace(_passwordFieldValue))
+            {
+                testCompany.SmtpPassword = PasswordEncryption.Encrypt(_passwordFieldValue);
+            }
+
+            var (success, errorMessage) = await EmailService.TestEmailConnectionAsync(testCompany);
+
+            if (success)
+            {
+                Snackbar.Add("✓ Verbindung erfolgreich! E-Mail-Versand ist einsatzbereit.", Severity.Success);
+            }
+            else
+            {
+                Snackbar.Add($"Verbindungstest fehlgeschlagen: {errorMessage}", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler beim Testen der Verbindung: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _testing = false;
+        }
+    }
+
+    private bool IsSmtpConfigured()
+    {
+        return !string.IsNullOrWhiteSpace(_company.SmtpHost) &&
+               _company.SmtpPort.HasValue &&
+               !string.IsNullOrWhiteSpace(_company.SmtpUsername) &&
+               (!string.IsNullOrWhiteSpace(_passwordFieldValue) || !string.IsNullOrWhiteSpace(_company.SmtpPassword)) &&
+               !string.IsNullOrWhiteSpace(_company.EmailSenderEmail);
+    }
+
+    private void NavigateBack()
+    {
+        NavigationManager.NavigateTo("/");
+    }
+}

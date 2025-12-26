@@ -1,0 +1,129 @@
+@page "/customers"
+@using InvoiceApp.Services
+@using InvoiceApp.Models
+@inject ICustomerService CustomerService
+@inject NavigationManager NavigationManager
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+
+
+<PageTitle>Kunden - Küstencode Faktura</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+    <MudText Typo="Typo.h4" GutterBottom="true">Kundenverwaltung</MudText>
+
+    <MudPaper Class="pa-4 mt-4">
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
+            <MudTextField @bind-Value="_searchString" Placeholder="Suche nach Name oder Kundennummer"
+                         Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                         IconSize="Size.Medium" Class="mt-0" Immediate="true" />
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                      StartIcon="@Icons.Material.Filled.Add" OnClick="CreateCustomer">
+                Neuer Kunde
+            </MudButton>
+        </MudStack>
+
+        <MudTable Items="@_filteredCustomers" Hover="true" Breakpoint="Breakpoint.Sm"
+                 Loading="@_loading" LoadingProgressColor="Color.Info"
+                 RowsPerPage="10">
+            <HeaderContent>
+                <MudTh>Kundennummer</MudTh>
+                <MudTh>Name</MudTh>
+                <MudTh>Stadt</MudTh>
+                <MudTh>Email</MudTh>
+                <MudTh Style="text-align: right">Aktionen</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Kundennummer">@context.CustomerNumber</MudTd>
+                <MudTd DataLabel="Name">@context.Name</MudTd>
+                <MudTd DataLabel="Stadt">@context.City</MudTd>
+                <MudTd DataLabel="Email">@context.Email</MudTd>
+                <MudTd DataLabel="Aktionen" Style="text-align: right">
+                    <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                  Color="Color.Primary" Size="Size.Small"
+                                  OnClick="@(() => EditCustomer(context.Id))" />
+                    <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                  Color="Color.Error" Size="Size.Small"
+                                  OnClick="@(() => DeleteCustomer(context))" />
+                </MudTd>
+            </RowTemplate>
+            <PagerContent>
+                <MudTablePager PageSizeOptions="new int[] { 10, 25, 50, 100 }" />
+            </PagerContent>
+        </MudTable>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private List<Customer> _customers = new();
+    private string _searchString = string.Empty;
+    private bool _loading = true;
+
+    private IEnumerable<Customer> _filteredCustomers => _customers.Where(c =>
+        string.IsNullOrWhiteSpace(_searchString) ||
+        c.CustomerNumber.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ||
+        c.Name.Contains(_searchString, StringComparison.OrdinalIgnoreCase) ||
+        (c.Email != null && c.Email.Contains(_searchString, StringComparison.OrdinalIgnoreCase)) ||
+        c.City.Contains(_searchString, StringComparison.OrdinalIgnoreCase)
+    );
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadCustomers();
+    }
+
+    private async Task LoadCustomers()
+    {
+        _loading = true;
+        try
+        {
+            _customers = await CustomerService.GetAllAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler beim Laden der Kunden: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void CreateCustomer()
+    {
+        NavigationManager.NavigateTo("/customers/create");
+    }
+
+    private void EditCustomer(int id)
+    {
+        NavigationManager.NavigateTo($"/customers/edit/{id}");
+    }
+
+    private async Task DeleteCustomer(Customer customer)
+    {
+        var parameters = new DialogParameters
+        {
+            { "ContentText", $"Möchten Sie den Kunden '{customer.Name}' wirklich löschen?" },
+            { "ButtonText", "Löschen" },
+            { "Color", Color.Error }
+        };
+
+        var dialog = await DialogService.ShowAsync<ConfirmDialog>("Kunde löschen", parameters);
+        var result = await dialog.Result;
+        
+        if (result != null && !result.Canceled)
+        {
+            try
+            {
+                await CustomerService.DeleteAsync(customer.Id);
+                Snackbar.Add(message: $"Kunde '{customer.Name}' wurde gelöscht.", Severity.Success);
+                await LoadCustomers();
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Fehler beim Löschen: {ex.Message}", Severity.Error);
+            }
+        }
+    }
+}

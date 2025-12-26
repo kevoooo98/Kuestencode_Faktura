@@ -1,0 +1,65 @@
+@inherits LayoutComponentBase
+@inject IJSRuntime JSRuntime
+
+<MudThemeProvider @ref="_themeProvider" Theme="@_theme" IsDarkMode="@_isDarkMode" />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<MudLayout>
+    <MudAppBar Elevation="1">
+        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@((e) => DrawerToggle())" />
+        <MudStack Row="false" Spacing="0" Class="ml-3">
+            <MudText Typo="Typo.h5">Küstencode Faktura</MudText>
+        </MudStack>
+        <MudSpacer />
+        <MudTooltip Text="@(_isDarkMode ? "Hell-Modus" : "Dunkel-Modus")">
+            <MudIconButton Icon="@(_isDarkMode ? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)"
+                          Color="Color.Inherit"
+                          OnClick="@ToggleDarkMode" />
+        </MudTooltip>
+    </MudAppBar>
+    <MudDrawer @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="2">
+        <NavMenu />
+    </MudDrawer>
+    <MudMainContent>
+        <MudContainer MaxWidth="MaxWidth.Large" Class="my-4 pt-4">
+            <CompanyDataWarning />
+            @Body
+        </MudContainer>
+    </MudMainContent>
+</MudLayout>
+
+@code {
+    private bool _drawerOpen = true;
+    private bool _isDarkMode = false;
+    private MudBlazor.MudTheme _theme = KuestenCodeTheme.Theme;
+    private MudThemeProvider? _themeProvider;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // Lade gespeicherte Theme-Präferenz aus localStorage
+            var isDarkModeStored = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "darkMode");
+            if (!string.IsNullOrEmpty(isDarkModeStored) && bool.TryParse(isDarkModeStored, out bool storedValue))
+            {
+                _isDarkMode = storedValue;
+                StateHasChanged();
+            }
+        }
+    }
+
+    void DrawerToggle()
+    {
+        _drawerOpen = !_drawerOpen;
+    }
+
+    async Task ToggleDarkMode()
+    {
+        _isDarkMode = !_isDarkMode;
+
+        // Speichere Präferenz in localStorage
+        await JSRuntime.InvokeVoidAsync("localStorage.setItem", "darkMode", _isDarkMode.ToString());
+    }
+}

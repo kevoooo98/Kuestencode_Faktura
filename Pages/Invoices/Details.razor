@@ -1,0 +1,577 @@
+@page "/invoices/details/{Id:int}"
+@using InvoiceApp.Services
+@using InvoiceApp.Models
+@using Microsoft.AspNetCore.WebUtilities
+@inject IInvoiceService InvoiceService
+@inject IPdfGeneratorService PdfGeneratorService
+@inject IXRechnungService XRechnungService
+@inject ICompanyService CompanyService
+@inject IEmailService EmailService
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+@inject IJSRuntime JSRuntime
+@inject IDialogService DialogService
+
+<PageTitle>Faktura-Details - Küstencode Faktura</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+    @if (_loading)
+    {
+        <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+    }
+    else if (_invoice == null)
+    {
+        <MudAlert Severity="Severity.Error">Rechnung nicht gefunden.</MudAlert>
+    }
+    else
+    {
+        <MudPaper Class="pa-4">
+            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
+                <MudText Typo="Typo.h4">Rechnung @_invoice.InvoiceNumber</MudText>
+                <MudChip T="string" Size="Size.Large" Color="@GetStatusColor(_invoice.Status)">
+                    @GetStatusText(_invoice.Status)
+                </MudChip>
+            </MudStack>
+
+            <MudGrid>
+                <!-- Kopfdaten -->
+                <MudItem xs="12" md="6">
+                    <MudText Typo="Typo.h6" GutterBottom="true">Rechnungsdaten</MudText>
+                    <MudSimpleTable Dense="true">
+                        <tbody>
+                            <tr>
+                                <td><strong>Rechnungsnummer:</strong></td>
+                                <td><strong>@_invoice.InvoiceNumber</strong></td>
+                            </tr>
+                            <tr>
+                                <td><strong>Rechnungsdatum:</strong></td>
+                                <td>@_invoice.InvoiceDate.ToString("dd.MM.yyyy")</td>
+                            </tr>
+                            @if (_invoice.ServicePeriodStart.HasValue || _invoice.ServicePeriodEnd.HasValue)
+                            {
+                                <tr>
+                                    <td><strong>Leistungszeitraum:</strong></td>
+                                    <td>
+                                        @if (_invoice.ServicePeriodStart.HasValue && _invoice.ServicePeriodEnd.HasValue)
+                                        {
+                                            @($"{_invoice.ServicePeriodStart.Value.ToString("dd.MM.yyyy")} - {_invoice.ServicePeriodEnd.Value.ToString("dd.MM.yyyy")}")
+                                        }
+                                        else if (_invoice.ServicePeriodStart.HasValue)
+                                        {
+                                            @($"ab {_invoice.ServicePeriodStart.Value.ToString("dd.MM.yyyy")}")
+                                        }
+                                        else if (_invoice.ServicePeriodEnd.HasValue)
+                                        {
+                                            @($"bis {_invoice.ServicePeriodEnd.Value.ToString("dd.MM.yyyy")}")
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                            @if (_invoice.DueDate.HasValue)
+                            {
+                                <tr>
+                                    <td><strong>Fälligkeitsdatum:</strong></td>
+                                    <td>@_invoice.DueDate.Value.ToString("dd.MM.yyyy")</td>
+                                </tr>
+                            }
+                            @if (_invoice.PaidDate.HasValue)
+                            {
+                                <tr>
+                                    <td><strong>Bezahlt am:</strong></td>
+                                    <td>@_invoice.PaidDate.Value.ToString("dd.MM.yyyy")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </MudSimpleTable>
+                </MudItem>
+
+                <!-- Kundendaten -->
+                <MudItem xs="12" md="6">
+                    <MudText Typo="Typo.h6" GutterBottom="true">Kunde</MudText>
+                    @if (_invoice.Customer != null)
+                    {
+                        <MudText Typo="Typo.body1"><strong>@_invoice.Customer.Name</strong></MudText>
+                        <MudText Typo="Typo.body2">@_invoice.Customer.CustomerNumber</MudText>
+                        <MudText Typo="Typo.body2">@_invoice.Customer.Address</MudText>
+                        <MudText Typo="Typo.body2">@_invoice.Customer.PostalCode @_invoice.Customer.City</MudText>
+                        @if (!string.IsNullOrEmpty(_invoice.Customer.Email))
+                        {
+                            <MudText Typo="Typo.body2">@_invoice.Customer.Email</MudText>
+                        }
+
+                        @if (_invoice.EmailSendCount > 0 && _invoice.EmailSentAt.HasValue || _invoice.PrintCount > 0 && _invoice.PrintedAt.HasValue)
+                        {
+                            <MudDivider Class="my-2" />
+                            @if (_invoice.EmailSendCount > 0 && _invoice.EmailSentAt.HasValue)
+                            {
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                    @(_invoice.EmailSendCount == 1 ? "Per E-Mail versendet" : $"{_invoice.EmailSendCount}× per E-Mail versendet")
+                                </MudText>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                    Zuletzt: @_invoice.EmailSentAt.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm") Uhr
+                                </MudText>
+                                @if (!string.IsNullOrWhiteSpace(_invoice.EmailSentTo))
+                                {
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                        An: @_invoice.EmailSentTo
+                                    </MudText>
+                                }
+                            }
+                            @if (_invoice.PrintCount > 0 && _invoice.PrintedAt.HasValue)
+                            {
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                    @(_invoice.PrintCount == 1 ? "Gedruckt" : $"{_invoice.PrintCount}× gedruckt")
+                                </MudText>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                    Zuletzt: @_invoice.PrintedAt.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm") Uhr
+                                </MudText>
+                            }
+                        }
+                    }
+                </MudItem>
+
+                <!-- Positionen -->
+                <MudItem xs="12" Class="mt-4">
+                    <MudText Typo="Typo.h6" GutterBottom="true">Positionen</MudText>
+                    <MudTable Items="@_invoice.Items" Dense="true" Hover="true" Elevation="0">
+                        <HeaderContent>
+                            <MudTh>Pos.</MudTh>
+                            <MudTh>Beschreibung</MudTh>
+                            <MudTh Style="text-align: right">Menge</MudTh>
+                            <MudTh Style="text-align: right">Einzelpreis</MudTh>
+                            <MudTh Style="text-align: right">Gesamt</MudTh>
+                        </HeaderContent>
+                        <RowTemplate Context="item">
+                            <MudTd DataLabel="Pos.">@item.Position</MudTd>
+                            <MudTd DataLabel="Beschreibung">@item.Description</MudTd>
+                            <MudTd DataLabel="Menge" Style="text-align: right">@item.Quantity.ToString("N3", _culture)</MudTd>
+                            <MudTd DataLabel="Einzelpreis" Style="text-align: right">@item.UnitPrice.ToString("C2", _culture)</MudTd>
+                            <MudTd DataLabel="Gesamt" Style="text-align: right">@item.TotalNet.ToString("C2", _culture)</MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                </MudItem>
+
+                <!-- Summen -->
+                <MudItem xs="12" Class="mt-4">
+                    <MudPaper Elevation="2" Class="pa-4" Style="max-width: 400px; margin-left: auto;">
+                        <MudStack Spacing="2">
+                            <MudStack Row="true" Justify="Justify.SpaceBetween">
+                                <MudText>Nettosumme:</MudText>
+                                <MudText>@_invoice.TotalNet.ToString("C2", _culture)</MudText>
+                            </MudStack>
+                            <MudStack Row="true" Justify="Justify.SpaceBetween">
+                                <MudText>@(_company?.IsKleinunternehmer == true ? "MwSt (0%):" : "MwSt (19%):")</MudText>
+                                <MudText>@_invoice.TotalVat.ToString("C2", _culture)</MudText>
+                            </MudStack>
+                            <MudDivider />
+                            <MudStack Row="true" Justify="Justify.SpaceBetween">
+                                <MudText Typo="Typo.h6">Bruttosumme:</MudText>
+                                <MudText Typo="Typo.h6">@_invoice.TotalGross.ToString("C2", _culture)</MudText>
+                            </MudStack>
+                            @if (_company?.IsKleinunternehmer == true)
+                            {
+                                <MudAlert Severity="Severity.Info" Dense="true" Class="mt-2">
+                                    §19 UStG - Kleinunternehmer (keine MwSt)
+                                </MudAlert>
+                            }
+                        </MudStack>
+                    </MudPaper>
+                </MudItem>
+
+                <!-- Notizen -->
+                @if (!string.IsNullOrWhiteSpace(_invoice.Notes))
+                {
+                    <MudItem xs="12" Class="mt-4">
+                        <MudText Typo="Typo.h6" GutterBottom="true">Notizen</MudText>
+                        <MudPaper Class="pa-3" Elevation="0">
+                            <MudText Typo="Typo.body2">@_invoice.Notes</MudText>
+                        </MudPaper>
+                    </MudItem>
+                }
+
+                <!-- Actions -->
+                <MudItem xs="12" Class="mt-6">
+                    <MudStack Row="true" Justify="Justify.SpaceBetween">
+                        <MudButton Variant="Variant.Filled" Color="Color.Default"
+                                  StartIcon="@Icons.Material.Filled.ArrowBack"
+                                  OnClick="@(() => NavigationManager.NavigateTo("/invoices"))">
+                            Zurück zur Übersicht
+                        </MudButton>
+
+                        <MudStack Row="true" Spacing="2">
+                            @if (_invoice.Status == InvoiceStatus.Draft)
+                            {
+                                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                                          StartIcon="@Icons.Material.Filled.Edit"
+                                          OnClick="@(() => NavigationManager.NavigateTo($"/invoices/edit/{_invoice.Id}"))">
+                                    Bearbeiten
+                                </MudButton>
+                            }
+
+                            @if (_invoice.Status == InvoiceStatus.Sent || _invoice.Status == InvoiceStatus.Overdue)
+                            {
+                                <MudButton Variant="Variant.Filled" Color="Color.Success"
+                                          StartIcon="@Icons.Material.Filled.CheckCircle"
+                                          OnClick="MarkAsPaid">
+                                    Als beglichen markieren
+                                </MudButton>
+                            }
+
+                            @if(_invoice.Status != InvoiceStatus.Paid){
+                                <MudButton Variant="Variant.Outlined"
+                                          Color="Color.Primary"
+                                          StartIcon="@Icons.Material.Filled.Print"
+                                          OnClick="PrintInvoice">
+                                    Drucken
+                                </MudButton>
+
+                                @if (_isEmailConfigured)
+                                {
+                                    <MudButton Variant="Variant.Outlined"
+                                            Color="Color.Primary"
+                                            StartIcon="@Icons.Material.Filled.Email"
+                                            OnClick="OpenEmailDialog"
+                                            Disabled="@(string.IsNullOrWhiteSpace(_invoice.Customer?.Email))">
+                                        Per E-Mail versenden
+                                    </MudButton>
+                                }
+                                else
+                                {
+                                    <MudAlert Severity="Severity.Info" Dense="true" Class="mt-2">
+                                        E-Mail-Versand nicht konfiguriert.
+                                        <MudLink Href="/settings/email">Jetzt einrichten</MudLink>
+                                    </MudAlert>
+                                }
+                            }
+
+
+                            <MudMenu Icon="@Icons.Material.Filled.Download"
+                                    Variant="Variant.Outlined"
+                                    Color="Color.Primary"
+                                    Label="Download"
+                                    Disabled="@_downloading"
+                                    EndIcon="@Icons.Material.Filled.KeyboardArrowDown">
+                                <MudMenuItem OnClick="DownloadPdf">
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                        <MudIcon Icon="@Icons.Material.Filled.PictureAsPdf" Size="Size.Small" />
+                                        <MudText>PDF (Normal)</MudText>
+                                    </MudStack>
+                                </MudMenuItem>
+                                <MudMenuItem OnClick="DownloadZugferdPdf">
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                        <MudIcon Icon="@Icons.Material.Filled.IntegrationInstructions" Size="Size.Small" />
+                                        <MudText>PDF (ZUGFeRD)</MudText>
+                                    </MudStack>
+                                </MudMenuItem>
+                                <MudMenuItem OnClick="DownloadXRechnung">
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                        <MudIcon Icon="@Icons.Material.Filled.Code" Size="Size.Small" />
+                                        <MudText>XRechnung (XML)</MudText>
+                                    </MudStack>
+                                </MudMenuItem>
+                            </MudMenu>
+                        </MudStack>
+                    </MudStack>
+                </MudItem>
+            </MudGrid>
+        </MudPaper>
+    }
+</MudContainer>
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private Invoice? _invoice;
+    private Company? _company;
+    private bool _loading = true;
+    private bool _downloading = false;
+    private bool _isEmailConfigured = false;
+    private System.Globalization.CultureInfo _culture = new System.Globalization.CultureInfo("de-DE");
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadInvoice();
+        await LoadCompany();
+        await CheckEmailConfiguration();
+        await CheckForSendAction();
+    }
+
+    private async Task CheckForSendAction()
+    {
+        var uri = new Uri(NavigationManager.Uri);
+        var queryParams = QueryHelpers.ParseQuery(uri.Query);
+
+        if (queryParams.TryGetValue("action", out var action) && action == "send")
+        {
+            // Navigiere zu bereinigter URL
+            NavigationManager.NavigateTo($"/invoices/details/{Id}", replace: true);
+
+            // Warte kurz damit die Navigation abgeschlossen ist
+            await Task.Delay(100);
+
+            // Öffne den E-Mail-Dialog
+            if (_invoice != null && _isEmailConfigured)
+            {
+                await OpenEmailDialog();
+            }
+            else if (!_isEmailConfigured)
+            {
+                Snackbar.Add("E-Mail-Versand ist nicht konfiguriert.", Severity.Warning);
+            }
+        }
+    }
+
+    private async Task CheckEmailConfiguration()
+    {
+        try
+        {
+            _isEmailConfigured = await CompanyService.IsEmailConfiguredAsync();
+        }
+        catch
+        {
+            _isEmailConfigured = false;
+        }
+    }
+
+    private async Task LoadCompany()
+    {
+        try
+        {
+            _company = await CompanyService.GetCompanyAsync();
+        }
+        catch
+        {
+            // Fehler ignorieren, falls Firmendaten noch nicht angelegt
+        }
+    }
+
+    private async Task LoadInvoice()
+    {
+        _loading = true;
+        try
+        {
+            _invoice = await InvoiceService.GetByIdAsync(Id, includeCustomer: true, includeItems: true);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler beim Laden der Rechnung: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task MarkAsPaid()
+    {
+        if (_invoice == null) return;
+
+        try
+        {
+            await InvoiceService.MarkAsPaidAsync(_invoice.Id);
+            Snackbar.Add($"Faktura {_invoice.InvoiceNumber} wurde als beglichen markiert.", Severity.Success);
+            await LoadInvoice();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private Color GetStatusColor(InvoiceStatus status)
+    {
+        return status switch
+        {
+            InvoiceStatus.Draft => Color.Default,
+            InvoiceStatus.Sent => Color.Info,
+            InvoiceStatus.Paid => Color.Success,
+            InvoiceStatus.Overdue => Color.Error,
+            InvoiceStatus.Cancelled => Color.Dark,
+            _ => Color.Default
+        };
+    }
+
+    private string GetStatusText(InvoiceStatus status)
+    {
+        return status switch
+        {
+            InvoiceStatus.Draft => "Entwurf",
+            InvoiceStatus.Sent => "Versendet",
+            InvoiceStatus.Paid => "Beglichen",
+            InvoiceStatus.Overdue => "Überfällig",
+            InvoiceStatus.Cancelled => "Storniert",
+            _ => status.ToString()
+        };
+    }
+
+    private async Task DownloadPdf()
+    {
+        if (_invoice == null) return;
+
+        _downloading = true;
+        try
+        {
+            var pdfBytes = PdfGeneratorService.GenerateInvoicePdf(_invoice.Id);
+            var fileName = $"{_invoice.InvoiceNumber}.pdf";
+
+            await JSRuntime.InvokeVoidAsync("downloadFile", fileName, Convert.ToBase64String(pdfBytes));
+            Snackbar.Add($"PDF für Rechnung {_invoice.InvoiceNumber} wurde heruntergeladen.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler beim Generieren des PDFs: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _downloading = false;
+        }
+    }
+
+    private async Task DownloadZugferdPdf()
+    {
+        if (_invoice == null) return;
+
+        _downloading = true;
+        try
+        {
+            // Validierung
+            var (isValid, missingFields) = await XRechnungService.ValidateForXRechnungAsync(_invoice.Id);
+            if (!isValid)
+            {
+                Snackbar.Add($"XRechnung erfordert vollständige Firmen- und Kundendaten. Fehlend: {string.Join(", ", missingFields)}", Severity.Warning);
+                return;
+            }
+
+            var pdfBytes = await XRechnungService.GenerateZugferdPdfAsync(_invoice.Id);
+            var fileName = $"{_invoice.InvoiceNumber}_zugferd.pdf";
+
+            await JSRuntime.InvokeVoidAsync("downloadFile", fileName, Convert.ToBase64String(pdfBytes));
+            Snackbar.Add($"ZUGFeRD-PDF für Rechnung {_invoice.InvoiceNumber} wurde heruntergeladen.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler beim Generieren des ZUGFeRD-PDFs: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _downloading = false;
+        }
+    }
+
+    private async Task DownloadXRechnung()
+    {
+        if (_invoice == null) return;
+
+        _downloading = true;
+        try
+        {
+            // Validierung
+            var (isValid, missingFields) = await XRechnungService.ValidateForXRechnungAsync(_invoice.Id);
+            if (!isValid)
+            {
+                Snackbar.Add($"XRechnung erfordert vollständige Firmen- und Kundendaten. Fehlend: {string.Join(", ", missingFields)}", Severity.Warning);
+                return;
+            }
+
+            var xmlContent = await XRechnungService.GenerateXRechnungXmlAsync(_invoice.Id);
+            var fileName = $"{_invoice.InvoiceNumber}_xrechnung.xml";
+
+            // Convert XML string to base64
+            var xmlBytes = System.Text.Encoding.UTF8.GetBytes(xmlContent);
+            await JSRuntime.InvokeVoidAsync("downloadFile", fileName, Convert.ToBase64String(xmlBytes));
+
+            Snackbar.Add($"XRechnung (XML) für Rechnung {_invoice.InvoiceNumber} wurde heruntergeladen.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler beim Generieren der XRechnung: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _downloading = false;
+        }
+    }
+
+    private async Task OpenEmailDialog()
+    {
+        if (_invoice == null) return;
+
+        var parameters = new DialogParameters<SendEmailDialog>
+        {
+            { x => x.Invoice, _invoice },
+            { x => x.CustomerEmail, _invoice.Customer?.Email },
+            { x => x.OnSend, EventCallback.Factory.Create<(string Email, string? Message, EmailAttachmentFormat Format)>(this, SendInvoiceEmail) }
+        };
+
+        var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Small, FullWidth = true };
+        var dialog = await DialogService.ShowAsync<SendEmailDialog>("E-Mail versenden", parameters, options);
+    }
+
+    private async Task SendInvoiceEmail((string Email, string? Message, EmailAttachmentFormat Format) data)
+    {
+        if (_invoice == null) return;
+
+        try
+        {
+            var success = await EmailService.SendInvoiceEmailAsync(
+                _invoice.Id,
+                data.Email,
+                data.Message,
+                data.Format);
+
+            if (success)
+            {
+                var formatText = data.Format switch
+                {
+                    EmailAttachmentFormat.ZugferdPdf => " als ZUGFeRD-PDF",
+                    EmailAttachmentFormat.XRechnungXmlOnly => " als XRechnung-XML",
+                    EmailAttachmentFormat.XRechnungXmlAndPdf => " als XRechnung (XML + PDF)",
+                    _ => ""
+                };
+
+                Snackbar.Add(
+                    $"Rechnung {_invoice.InvoiceNumber}{formatText} wurde erfolgreich an {data.Email} versendet.",
+                    Severity.Success);
+                await LoadInvoice(); // Reload to update email tracking info
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler beim Versenden der E-Mail: {ex.Message}", Severity.Error);
+            throw; // Re-throw to prevent dialog from closing
+        }
+    }
+
+    private async Task PrintInvoice()
+    {
+        if (_invoice == null) return;
+
+        try
+        {
+            // Generate PDF
+            var pdfBytes = PdfGeneratorService.GenerateInvoicePdf(_invoice.Id);
+            var base64 = Convert.ToBase64String(pdfBytes);
+
+            // Open print dialog
+            await JSRuntime.InvokeVoidAsync("printPdf", base64);
+
+            // Show confirmation dialog
+            var parameters = new DialogParameters();
+            var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Small };
+            var dialog = await DialogService.ShowAsync<PrintConfirmationDialog>("Rechnung gedruckt?", parameters, options);
+            var result = await dialog.Result;
+
+            if (!result.Canceled)
+            {
+                await InvoiceService.MarkAsPrintedAsync(_invoice.Id);
+                Snackbar.Add("Rechnung als gedruckt markiert", Severity.Success);
+                await LoadInvoice(); // Reload to update print tracking info
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler beim Drucken: {ex.Message}", Severity.Error);
+        }
+    }
+}

@@ -1,0 +1,62 @@
+@page "/"
+@using Microsoft.AspNetCore.Components.Web
+@namespace InvoiceApp.Pages
+@addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers
+
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <base href="~/" />
+    <title>Küstencode Faktura</title>
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700&display=swap" rel="stylesheet" />
+    <link href="_content/MudBlazor/MudBlazor.min.css" rel="stylesheet" />
+    <link href="css/site.css" rel="stylesheet" />
+    <component type="typeof(HeadOutlet)" render-mode="ServerPrerendered" />
+</head>
+<body>
+    <component type="typeof(App)" render-mode="ServerPrerendered" />
+
+    <div id="blazor-error-ui">
+        <environment include="Staging,Production">
+            Ein Fehler ist aufgetreten. Diese Anwendung reagiert möglicherweise nicht mehr, bis sie neu geladen wird.
+        </environment>
+        <environment include="Development">
+            Ein unbehandelter Fehler ist aufgetreten. Details finden Sie in der Browser-Konsole.
+        </environment>
+        <a href="" class="reload">Neu laden</a>
+        <a class="dismiss">🗙</a>
+    </div>
+
+    <script src="_framework/blazor.server.js"></script>
+    <script src="_content/MudBlazor/MudBlazor.min.js"></script>
+    <script>
+        function downloadFile(filename, base64Data) {
+            const linkSource = `data:application/pdf;base64,${base64Data}`;
+            const downloadLink = document.createElement("a");
+            downloadLink.href = linkSource;
+            downloadLink.download = filename;
+            downloadLink.click();
+        }
+
+        function printPdf(base64Data) {
+            const pdfData = atob(base64Data);
+            const bytes = new Uint8Array(pdfData.length);
+            for (let i = 0; i < pdfData.length; i++) {
+                bytes[i] = pdfData.charCodeAt(i);
+            }
+            const blob = new Blob([bytes], { type: 'application/pdf' });
+            const url = URL.createObjectURL(blob);
+
+            const printWindow = window.open(url, '_blank');
+            if (printWindow) {
+                printWindow.onload = function() {
+                    printWindow.print();
+                };
+            }
+        }
+    </script>
+</body>
+</html>

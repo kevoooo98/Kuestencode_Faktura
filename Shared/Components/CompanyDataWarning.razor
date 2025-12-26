@@ -1,0 +1,50 @@
+@using InvoiceApp.Services
+@inject ICompanyService CompanyService
+@inject NavigationManager NavigationManager
+
+@if (_showWarning)
+{
+    <MudAlert Severity="Severity.Warning" Class="mb-4" ContentAlignment="HorizontalAlignment.Center">
+        <MudStack Row="true" Justify="Justify.Center" AlignItems="AlignItems.Center" Spacing="2">
+            <MudText>
+                Bitte vervollständigen Sie Ihre Firmendaten in den Einstellungen.
+            </MudText>
+            <MudButton Color="Color.Warning" Variant="Variant.Filled" Size="Size.Small"
+                      OnClick="NavigateToSettings">
+                Zu den Einstellungen
+            </MudButton>
+        </MudStack>
+    </MudAlert>
+}
+
+@code {
+    private bool _showWarning = false;
+    private bool _isInitialized = false;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !_isInitialized)
+        {
+            _isInitialized = true;
+
+            // Kleine Verzögerung, um sicherzustellen, dass andere Operationen abgeschlossen sind
+            await Task.Delay(100);
+
+            try
+            {
+                var hasData = await CompanyService.HasCompanyDataAsync();
+                _showWarning = !hasData;
+                StateHasChanged();
+            }
+            catch
+            {
+                _showWarning = false;
+            }
+        }
+    }
+
+    private void NavigateToSettings()
+    {
+        NavigationManager.NavigateTo("/settings/company");
+    }
+}

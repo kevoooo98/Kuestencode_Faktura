@@ -1,0 +1,98 @@
+@using InvoiceApp.Models
+@using InvoiceApp.Services
+@inject IWebHostEnvironment Environment
+
+<MudDialog>
+    <DialogContent>
+        <MudText Typo="Typo.h6" Class="mb-3">E-Mail-Vorschau</MudText>
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+            Beispiel mit fiktiven Rechnungsdaten
+        </MudText>
+
+        <div style="border: 1px solid #e5e7eb; border-radius: 4px; max-height: 500px; overflow-y: auto;">
+            @((MarkupString)_previewHtml)
+        </div>
+    </DialogContent>
+    <DialogActions>
+        <MudButton Color="Color.Primary" OnClick="Close">Schließen</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    public IMudDialogInstance Dialog { get; set; } = default!;
+
+    [Parameter]
+    public Company Company { get; set; } = default!;
+
+    private string _previewHtml = string.Empty;
+
+    protected override void OnInitialized()
+    {
+        _previewHtml = GeneratePreview();
+    }
+
+    private string GeneratePreview()
+    {
+        // Select template based on layout
+        var templateName = Company.EmailLayout switch
+        {
+            EmailLayout.Klar => "EmailTemplateKlar.html",
+            EmailLayout.Strukturiert => "EmailTemplateStrukturiert.html",
+            EmailLayout.Betont => "EmailTemplateBetont.html",
+            _ => "EmailTemplateKlar.html"
+        };
+
+        var templatePath = Path.Combine(Environment.WebRootPath, "templates", templateName);
+
+        if (!File.Exists(templatePath))
+        {
+            return "<p>Template nicht gefunden</p>";
+        }
+
+        var template = File.ReadAllText(templatePath);
+
+        // Replace colors
+        template = template.Replace("{{PRIMARY_COLOR}}", Company.EmailPrimaryColor);
+        template = template.Replace("{{ACCENT_COLOR}}", Company.EmailAccentColor);
+
+        // Replace placeholders with example data
+        var greeting = string.IsNullOrWhiteSpace(Company.EmailGreeting)
+            ? "Sehr geehrte Damen und Herren,\n\nanbei erhalten Sie Ihre Rechnung."
+            : Company.EmailGreeting;
+
+        var closing = string.IsNullOrWhiteSpace(Company.EmailClosing)
+            ? "Mit freundlichen Grüßen\n\n{{Firmenname}}"
+            : Company.EmailClosing;
+
+        // Replace placeholders in greeting and closing
+        var firmenname = !string.IsNullOrEmpty(Company.BusinessName)
+            ? Company.BusinessName
+            : Company.OwnerFullName;
+
+        greeting = ReplaceEmailPlaceholders(greeting, "RE-2025-001", "31.01.2025", firmenname);
+        closing = ReplaceEmailPlaceholders(closing, "RE-2025-001", "31.01.2025", firmenname);
+
+        template = template.Replace("{{GREETING}}", greeting);
+        template = template.Replace("{{CLOSING}}", closing);
+        template = template.Replace("{{INVOICE_NUMBER}}", "RE-2025-001");
+        template = template.Replace("{{INVOICE_DATE}}", "17.01.2025");
+        template = template.Replace("{{DUE_DATE}}", "31.01.2025");
+        template = template.Replace("{{TOTAL_AMOUNT}}", "1.190,00 €");
+
+        return template;
+    }
+
+    private string ReplaceEmailPlaceholders(string text, string invoiceNumber, string dueDate, string firmenname)
+    {
+        return text
+            .Replace("{{Firmenname}}", firmenname)
+            .Replace("{{Rechnungsnummer}}", invoiceNumber)
+            .Replace("{{Faelligkeitsdatum}}", dueDate);
+    }
+
+    private void Close()
+    {
+        Dialog.Close();
+    }
+}

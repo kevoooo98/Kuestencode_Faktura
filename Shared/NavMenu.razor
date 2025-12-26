@@ -1,0 +1,38 @@
+@inject NavigationManager NavigationManager
+
+<MudNavMenu>
+    <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Home">
+        Übersicht
+    </MudNavLink>
+    <MudNavLink Href="/invoices" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Receipt">
+        Fakturen
+    </MudNavLink>
+    <MudNavLink Href="/customers" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.People">
+        Kunden
+    </MudNavLink>
+    <MudNavGroup Title="Einstellungen" Icon="@Icons.Material.Filled.Settings" Expanded="@_settingsExpanded">
+        <MudNavLink Href="/settings/company" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Business">
+            Firmenstammdaten
+        </MudNavLink>
+        <MudNavLink Href="/settings/email" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Email">
+            E-Mail-Versand
+        </MudNavLink>
+        <MudNavLink Href="/settings/email-anpassung" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Palette">
+            E-Mail-Anpassung
+        </MudNavLink>
+        <MudNavLink Href="/settings/pdf-anpassung" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.PictureAsPdf">
+            PDF-Anpassung
+        </MudNavLink>
+    </MudNavGroup>
+</MudNavMenu>
+
+@code {
+    private bool _settingsExpanded = false;
+
+    protected override void OnInitialized()
+    {
+        // Expand settings group if on a settings page
+        var uri = NavigationManager.Uri;
+        _settingsExpanded = uri.Contains("/settings/");
+    }
+}

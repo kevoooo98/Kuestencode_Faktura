@@ -1,0 +1,309 @@
+@page "/settings/pdf-anpassung"
+@using InvoiceApp.Models
+@using InvoiceApp.Services
+@inject ICompanyService CompanyService
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<PageTitle>PDF-Anpassung - Küstencode Faktura</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.False" Class="mt-4 px-6">
+    <MudGrid Spacing="4">
+        <!-- Settings Panel -->
+        <MudItem xs="12" lg="7">
+            <MudPaper Elevation="2" Class="pa-6">
+                <MudText Typo="Typo.h4" GutterBottom="true">PDF-Anpassung</MudText>
+                <MudText Typo="Typo.body1" Color="Color.Secondary" Class="mb-6">
+                    Passen Sie das Erscheinungsbild Ihrer Rechnungs-PDFs an.
+                </MudText>
+
+                @if (_loading)
+                {
+                    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+                }
+                else
+                {
+                    <!-- Layout-Auswahl -->
+                    <MudText Typo="Typo.h6" Class="mt-6 mb-3">Layout</MudText>
+                    <MudRadioGroup @bind-Value="_company.PdfLayout">
+                        <MudCard Outlined="true" Class="mb-3" Style="@(_company.PdfLayout == PdfLayout.Klar ? "border: 2px solid var(--mud-palette-primary);" : "")">
+                            <MudCardContent>
+                                <MudRadio Value="PdfLayout.Klar" Color="Color.Primary">
+                                    <MudText Typo="Typo.h6">Klar <MudChip T="string" Size="Size.Small" Variant="Variant.Text">Default</MudChip></MudText>
+                                </MudRadio>
+                                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="ml-8">
+                                    Minimalistisch, text-dominiert, maximale Lesbarkeit.
+                                </MudText>
+                            </MudCardContent>
+                        </MudCard>
+
+                        <MudCard Outlined="true" Class="mb-3" Style="@(_company.PdfLayout == PdfLayout.Strukturiert ? "border: 2px solid var(--mud-palette-primary);" : "")">
+                            <MudCardContent>
+                                <MudRadio Value="PdfLayout.Strukturiert" Color="Color.Primary">
+                                    <MudText Typo="Typo.h6">Strukturiert</MudText>
+                                </MudRadio>
+                                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="ml-8">
+                                    Mit Boxen und Trennlinien für mehr Übersichtlichkeit.
+                                </MudText>
+                            </MudCardContent>
+                        </MudCard>
+
+                        <MudCard Outlined="true" Class="mb-3" Style="@(_company.PdfLayout == PdfLayout.Betont ? "border: 2px solid var(--mud-palette-primary);" : "")">
+                            <MudCardContent>
+                                <MudRadio Value="PdfLayout.Betont" Color="Color.Primary">
+                                    <MudText Typo="Typo.h6">Betont</MudText>
+                                </MudRadio>
+                                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="ml-8">
+                                    Farbiger Header und hervorgehobener Betrag, visuell stärker.
+                                </MudText>
+                            </MudCardContent>
+                        </MudCard>
+                    </MudRadioGroup>
+
+                    <!-- Farben -->
+                    <MudText Typo="Typo.h6" Class="mt-6 mb-3">Farben</MudText>
+                    <MudGrid>
+                        <MudItem xs="12" md="6">
+                            <MudText Typo="Typo.subtitle2" Class="mb-2">Primärfarbe</MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-3">
+                                Wird für Überschriften und Hervorhebungen verwendet.
+                            </MudText>
+
+                            <MudColorPicker @bind-Value="_primaryColorValue"
+                                           ColorPickerMode="ColorPickerMode.RGB"
+                                           DisableAlpha="true"
+                                           Placeholder="Farbe wählen"
+                                           Class="mb-3" />
+
+                            <MudText Typo="Typo.caption" Class="mb-2">Vorschläge:</MudText>
+                            <MudStack Row="true" Spacing="2" Wrap="Wrap.Wrap">
+                                <MudChip T="string" Size="Size.Small" OnClick='() => SetPrimaryColor("#0F2A3D")'
+                                        Style="background-color: #0F2A3D; color: white;">Küstencode Primär</MudChip>
+                                <MudChip T="string" Size="Size.Small" OnClick='() => SetPrimaryColor("#1f3a5f")'
+                                        Style="background-color: #1f3a5f; color: white;">Nordisch Blau</MudChip>
+                                <MudChip T="string" Size="Size.Small" OnClick='() => SetPrimaryColor("#374151")'
+                                        Style="background-color: #374151; color: white;">Anthrazit</MudChip>
+                                <MudChip T="string" Size="Size.Small" OnClick='() => SetPrimaryColor("#065f46")'
+                                        Style="background-color: #065f46; color: white;">Dunkelgrün</MudChip>
+                                <MudChip T="string" Size="Size.Small" OnClick='() => SetPrimaryColor("#0c4a6e")'
+                                        Style="background-color: #0c4a6e; color: white;">Tiefseeblau</MudChip>
+                                <MudChip T="string" Size="Size.Small" OnClick='() => SetPrimaryColor("#334155")'
+                                        Style="background-color: #334155; color: white;">Schiefer</MudChip>
+                            </MudStack>
+                        </MudItem>
+
+                        <MudItem xs="12" md="6">
+                            <MudText Typo="Typo.subtitle2" Class="mb-2">Akzentfarbe</MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-3">
+                                Wird sparsam zur Betonung eingesetzt.
+                            </MudText>
+
+                            <MudColorPicker @bind-Value="_accentColorValue"
+                                           ColorPickerMode="ColorPickerMode.RGB"
+                                           DisableAlpha="true"
+                                           Placeholder="Farbe wählen"
+                                           Class="mb-3" />
+
+                            <MudText Typo="Typo.caption" Class="mb-2">Vorschläge:</MudText>
+                            <MudStack Row="true" Spacing="2" Wrap="Wrap.Wrap">
+                                <MudChip T="string" Size="Size.Small" OnClick='() => SetAccentColor("#3FA796")'
+                                        Style="background-color: #3FA796; color: white;">Salzgrün</MudChip>
+                                <MudChip T="string" Size="Size.Small" OnClick='() => SetAccentColor("#6b7280")'
+                                        Style="background-color: #6b7280; color: white;">Hellgrau</MudChip>
+                                <MudChip T="string" Size="Size.Small" OnClick='() => SetAccentColor("#3b82f6")'
+                                        Style="background-color: #3b82f6; color: white;">Mittelblau</MudChip>
+                                <MudChip T="string" Size="Size.Small" OnClick='() => SetAccentColor("#ea580c")'
+                                        Style="background-color: #ea580c; color: white;">Orange</MudChip>
+                                <MudChip T="string" Size="Size.Small" OnClick='() => SetAccentColor("#16a34a")'
+                                        Style="background-color: #16a34a; color: white;">Grün</MudChip>
+                                <MudChip T="string" Size="Size.Small" OnClick='() => SetAccentColor("#7c3aed")'
+                                        Style="background-color: #7c3aed; color: white;">Violett</MudChip>
+                            </MudStack>
+                        </MudItem>
+                    </MudGrid>
+
+                    @if (_company.PdfPrimaryColor == _company.PdfAccentColor)
+                    {
+                        <MudAlert Severity="Severity.Warning" Class="mt-3">
+                            Primär- und Akzentfarbe sollten sich unterscheiden.
+                        </MudAlert>
+                    }
+
+                    <!-- Textanpassung -->
+                    <MudText Typo="Typo.h6" Class="mt-6 mb-3">Textanpassung (optional)</MudText>
+                    <MudGrid>
+                        <MudItem xs="12">
+                            <MudTextField Label="Header-Text"
+                                         @bind-Value="_company.PdfHeaderText"
+                                         Lines="3"
+                                         Placeholder="Optionaler Text im Header-Bereich"
+                                         HelperText="Max. 500 Zeichen"
+                                         Counter="500"
+                                         MaxLength="500" />
+                        </MudItem>
+                        <MudItem xs="12">
+                            <MudTextField Label="Footer-Text"
+                                         @bind-Value="_company.PdfFooterText"
+                                         Lines="3"
+                                         Placeholder="Optionaler zusätzlicher Text im Footer"
+                                         HelperText="Max. 1000 Zeichen"
+                                         Counter="1000"
+                                         MaxLength="1000" />
+                        </MudItem>
+                        <MudItem xs="12">
+                            <MudTextField Label="Zahlungshinweis"
+                                         @bind-Value="_company.PdfPaymentNotice"
+                                         Lines="3"
+                                         Placeholder="Bitte überweisen Sie den Betrag bis zum {{Faelligkeitsdatum}} auf unser Konto."
+                                         HelperText="Max. 500 Zeichen"
+                                         Counter="500"
+                                         MaxLength="500" />
+                        </MudItem>
+                    </MudGrid>
+
+                    <MudAlert Severity="Severity.Info" Class="mt-3">
+                        <strong>Verfügbare Platzhalter:</strong><br />
+                        <code>{{Firmenname}}</code> - Ihr Firmenname<br />
+                        <code>{{Rechnungsnummer}}</code> - Rechnungsnummer<br />
+                        <code>{{Rechnungsdatum}}</code> - Rechnungsdatum<br />
+                        <code>{{Faelligkeitsdatum}}</code> - Fälligkeitsdatum<br />
+                        <code>{{Rechnungsbetrag}}</code> - Rechnungsbetrag<br />
+                        <code>{{Kundenname}}</code> - Kundenname<br /><br />
+                        <MudText Typo="Typo.caption">Platzhalter werden beim Generieren automatisch ersetzt.</MudText>
+                    </MudAlert>
+
+                    <!-- Aktionen -->
+                    <MudStack Row="true" Justify="Justify.SpaceBetween" Class="mt-6">
+                        <MudButton Variant="Variant.Text"
+                                  Color="Color.Default"
+                                  OnClick="ResetToDefaults">
+                            Auf Standard zurücksetzen
+                        </MudButton>
+                        <MudButton ButtonType="ButtonType.Button"
+                                  Variant="Variant.Filled"
+                                  Color="Color.Primary"
+                                  Disabled="@_saving"
+                                  OnClick="HandleSubmit">
+                            @if (_saving)
+                            {
+                                <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                                <MudText Class="ms-2">Speichern...</MudText>
+                            }
+                            else
+                            {
+                                <MudText>Speichern</MudText>
+                            }
+                        </MudButton>
+                    </MudStack>
+                }
+            </MudPaper>
+        </MudItem>
+
+        <!-- Live Preview Panel -->
+        <MudItem xs="12" lg="5">
+            <MudPaper Elevation="2" Class="pa-6" Style="position: sticky; top: 20px;">
+                <MudText Typo="Typo.h6" Class="mb-3">Live-Vorschau</MudText>
+                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-4">
+                    Beispiel-Rechnung mit aktuellen Einstellungen
+                </MudText>
+
+                @if (!_loading)
+                {
+                    <PdfPreview Company="_company" />
+                }
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+</MudContainer>
+
+@code {
+    private Company _company = new();
+    private bool _loading = true;
+    private bool _saving = false;
+    private MudBlazor.Utilities.MudColor _primaryColorValue;
+    private MudBlazor.Utilities.MudColor _accentColorValue;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _company = await CompanyService.GetCompanyAsync();
+            _primaryColorValue = new MudBlazor.Utilities.MudColor(_company.PdfPrimaryColor);
+            _accentColorValue = new MudBlazor.Utilities.MudColor(_company.PdfAccentColor);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler beim Laden: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            _company.PdfPrimaryColor = _primaryColorValue.ToString(MudBlazor.Utilities.MudColorOutputFormats.Hex);
+            _company.PdfAccentColor = _accentColorValue.ToString(MudBlazor.Utilities.MudColorOutputFormats.Hex);
+        }
+    }
+
+    private void SetPrimaryColor(string color)
+    {
+        _primaryColorValue = new MudBlazor.Utilities.MudColor(color);
+        _company.PdfPrimaryColor = color;
+    }
+
+    private void SetAccentColor(string color)
+    {
+        _accentColorValue = new MudBlazor.Utilities.MudColor(color);
+        _company.PdfAccentColor = color;
+    }
+
+    private async Task HandleSubmit()
+    {
+        _saving = true;
+        try
+        {
+            _company.PdfPrimaryColor = _primaryColorValue.ToString(MudBlazor.Utilities.MudColorOutputFormats.Hex);
+            _company.PdfAccentColor = _accentColorValue.ToString(MudBlazor.Utilities.MudColorOutputFormats.Hex);
+
+            await CompanyService.UpdateCompanyAsync(_company);
+            Snackbar.Add("PDF-Anpassungen gespeichert", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler beim Speichern: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private async Task ResetToDefaults()
+    {
+        var result = await DialogService.ShowMessageBox(
+            "Auf Standard zurücksetzen",
+            "Möchten Sie wirklich alle PDF-Anpassungen auf die Standardwerte zurücksetzen?",
+            yesText: "Ja, zurücksetzen",
+            cancelText: "Abbrechen");
+
+        if (result == true)
+        {
+            _company.PdfLayout = PdfLayout.Klar;
+            _company.PdfPrimaryColor = "#1f3a5f";
+            _company.PdfAccentColor = "#3FA796";
+            _company.PdfHeaderText = null;
+            _company.PdfFooterText = null;
+            _company.PdfPaymentNotice = null;
+
+            _primaryColorValue = new MudBlazor.Utilities.MudColor(_company.PdfPrimaryColor);
+            _accentColorValue = new MudBlazor.Utilities.MudColor(_company.PdfAccentColor);
+
+            Snackbar.Add("Auf Standardwerte zurückgesetzt", Severity.Info);
+        }
+    }
+}
