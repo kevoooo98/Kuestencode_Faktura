@@ -1,4 +1,4 @@
-# K-stencode Faktura
+# Küstencode Faktura
 
 Eine professionelle Rechnungsverwaltungsanwendung mit umfassenden Features für Rechnungserstellung, Kundenverwaltung und XRechnung-Export.
 
