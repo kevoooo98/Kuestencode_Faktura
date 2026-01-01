@@ -356,6 +356,12 @@ public class EmailService : IEmailService
                         <td><strong>Rechnungsbetrag:</strong></td>
                         <td class=""highlight"">{formattedTotal}</td>
                     </tr>
+                    {(invoice.DiscountAmount > 0 ? $@"
+                    <tr>
+                        <td colspan=""2"" style=""font-size: 12px; color: #666;"">
+                            <em>inkl. Rabatt: {(invoice.DiscountType == DiscountType.Percentage ? $"{invoice.DiscountValue}%" : invoice.DiscountAmount.ToString("C", culture))}</em>
+                        </td>
+                    </tr>" : "")}
                     <tr>
                         <td><strong>Rechnungsnummer:</strong></td>
                         <td>{invoice.InvoiceNumber}</td>
@@ -439,7 +445,7 @@ Sehr geehrte Damen und Herren,
 RECHNUNGSDETAILS:
 ------------------
 Rechnungsbetrag: {formattedTotal}
-Rechnungsnummer: {invoice.InvoiceNumber}
+{(invoice.DiscountAmount > 0 ? $"  (inkl. Rabatt: {(invoice.DiscountType == DiscountType.Percentage ? $"{invoice.DiscountValue}%" : invoice.DiscountAmount.ToString("C", culture))})\n" : "")}Rechnungsnummer: {invoice.InvoiceNumber}
 Rechnungsdatum:  {formattedDate}
 Fällig am:       {formattedDueDate}
 

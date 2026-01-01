@@ -56,10 +56,11 @@ using (var scope = app.Services.CreateScope())
         var context = services.GetRequiredService<ApplicationDbContext>();
         var logger = services.GetRequiredService<ILogger<Program>>();
 
-        logger.LogInformation("Ensuring database is created...");
+        logger.LogInformation("Applying database migrations...");
 
-        context.Database.EnsureCreated();
-        logger.LogInformation("Database ensured successfully.");
+        // Use Migrate() instead of EnsureCreated() to support migrations
+        context.Database.Migrate();
+        logger.LogInformation("Database migrations applied successfully.");
     }
     catch (Exception ex)
     {

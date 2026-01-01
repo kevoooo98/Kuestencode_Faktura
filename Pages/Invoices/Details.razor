@@ -186,6 +186,17 @@
                                 <MudText>Nettosumme:</MudText>
                                 <MudText>@_invoice.TotalNet.ToString("C2", _culture)</MudText>
                             </MudStack>
+                            @if (_invoice.DiscountAmount > 0)
+                            {
+                                <MudStack Row="true" Justify="Justify.SpaceBetween">
+                                    <MudText>Rabatt @(_invoice.DiscountType == DiscountType.Percentage ? $"({_invoice.DiscountValue}%)" : ""):</MudText>
+                                    <MudText Color="Color.Success">-@_invoice.DiscountAmount.ToString("C2", _culture)</MudText>
+                                </MudStack>
+                                <MudStack Row="true" Justify="Justify.SpaceBetween">
+                                    <MudText>Zwischensumme:</MudText>
+                                    <MudText>@_invoice.TotalNetAfterDiscount.ToString("C2", _culture)</MudText>
+                                </MudStack>
+                            }
                             <MudStack Row="true" Justify="Justify.SpaceBetween">
                                 <MudText>@(_company?.IsKleinunternehmer == true ? "MwSt (0%, §19 UStG):" : "MwSt (19%):")</MudText>
                                 <MudText>@_invoice.TotalVat.ToString("C2", _culture)</MudText>

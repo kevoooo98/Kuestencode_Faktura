@@ -120,6 +120,39 @@
                     Position hinzufügen
                 </MudButton>
 
+                <!-- Rabatt (optional) -->
+                <MudText Typo="Typo.h6" Class="mt-6 mb-2">Rabatt (optional)</MudText>
+                <MudCheckBox @bind-Value="_hasDiscount" Label="Rabatt gewähren" Color="Color.Primary" Class="mb-3"
+                            T="bool" ValueChanged="OnDiscountToggle" />
+
+                @if (_hasDiscount)
+                {
+                    <MudPaper Elevation="1" Class="pa-3 mb-4">
+                        <MudRadioGroup @bind-Value="_invoice.DiscountType" T="DiscountType">
+                            <MudRadio Value="@DiscountType.Percentage" Color="Color.Primary">Prozentual (%)</MudRadio>
+                            <MudRadio Value="@DiscountType.Absolute" Color="Color.Primary">Absolut (EUR)</MudRadio>
+                        </MudRadioGroup>
+
+                        <MudNumericField @bind-Value="_invoice.DiscountValue"
+                                        Label="@GetDiscountLabel()"
+                                        Variant="Variant.Outlined"
+                                        Min="0.01m"
+                                        Step="1m"
+                                        Format="@(_invoice.DiscountType == DiscountType.Percentage ? "N2" : "C2")"
+                                        HideSpinButtons="true"
+                                        Culture="@_culture"
+                                        OnBlur="RecalculateTotals"
+                                        Class="mt-3" />
+
+                        @if (_invoice.DiscountType == DiscountType.Percentage && _invoice.DiscountValue > 50)
+                        {
+                            <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-2">
+                                Warnung: Rabatt über 50% ist ungewöhnlich hoch
+                            </MudAlert>
+                        }
+                    </MudPaper>
+                }
+
                 <!-- Abschläge (optional) -->
                 <MudText Typo="Typo.h6" Class="mt-6 mb-2">Abschläge (optional)</MudText>
                 @if (_invoice.DownPayments.Count > 0)
@@ -170,6 +203,17 @@
                             <MudText>Nettosumme:</MudText>
                             <MudText>@_totalNet.ToString("C2", _culture)</MudText>
                         </MudStack>
+                        @if (_discountAmount > 0)
+                        {
+                            <MudStack Row="true" Justify="Justify.SpaceBetween">
+                                <MudText>Rabatt @(_invoice?.DiscountType == DiscountType.Percentage ? $"({_invoice.DiscountValue}%)" : ""):</MudText>
+                                <MudText Color="Color.Success">-@_discountAmount.ToString("C2", _culture)</MudText>
+                            </MudStack>
+                            <MudStack Row="true" Justify="Justify.SpaceBetween">
+                                <MudText>Zwischensumme:</MudText>
+                                <MudText>@_totalNetAfterDiscount.ToString("C2", _culture)</MudText>
+                            </MudStack>
+                        }
                         <MudStack Row="true" Justify="Justify.SpaceBetween">
                             <MudText>@(_company?.IsKleinunternehmer == true ? "MwSt (0%, §19 UStG):" : "MwSt (19%):")</MudText>
                             <MudText>@_totalVat.ToString("C2", _culture)</MudText>
@@ -268,6 +312,8 @@
     private bool _saving = false;
     private string? _errorMessage;
     private decimal _totalNet, _totalVat, _totalGross, _totalDownPayments, _amountDue;
+    private decimal _discountAmount, _totalNetAfterDiscount;
+    private bool _hasDiscount = false;
     private System.Globalization.CultureInfo _culture = new System.Globalization.CultureInfo("de-DE");
 
     protected override async Task OnInitializedAsync()
@@ -294,6 +340,9 @@
             _servicePeriodStart = _invoice.ServicePeriodStart;
             _servicePeriodEnd = _invoice.ServicePeriodEnd;
             _dueDate = _invoice.DueDate;
+
+            // Initialize discount toggle
+            _hasDiscount = _invoice.DiscountType != DiscountType.None;
 
             RecalculateTotals();
         }
@@ -365,6 +414,35 @@
         RecalculateTotals();
     }
 
+    private void OnDiscountToggle()
+    {
+        if (_invoice == null) return;
+
+        if (!_hasDiscount)
+        {
+            // Reset discount when toggled off
+            _invoice.DiscountType = DiscountType.None;
+            _invoice.DiscountValue = null;
+        }
+        else
+        {
+            // Initialize discount when toggled on
+            _invoice.DiscountType = DiscountType.Percentage;
+            _invoice.DiscountValue = 0;
+        }
+
+        RecalculateTotals();
+    }
+
+    private string GetDiscountLabel()
+    {
+        if (_invoice == null) return "Rabatt";
+
+        return _invoice.DiscountType == DiscountType.Percentage
+            ? "Rabatt in %"
+            : "Rabatt in EUR";
+    }
+
     private void RecalculateTotals()
     {
         if (_invoice == null) return;
@@ -377,8 +455,38 @@
         }
 
         _totalNet = _invoice.Items.Sum(i => i.TotalNet);
-        _totalVat = _invoice.Items.Sum(i => i.TotalVat);
-        _totalGross = _invoice.Items.Sum(i => i.TotalGross);
+
+        // Calculate discount
+        if (_invoice.DiscountType != DiscountType.None && _invoice.DiscountValue.HasValue)
+        {
+            if (_invoice.DiscountType == DiscountType.Percentage)
+            {
+                _discountAmount = _totalNet * (_invoice.DiscountValue.Value / 100);
+            }
+            else
+            {
+                _discountAmount = _invoice.DiscountValue.Value;
+            }
+        }
+        else
+        {
+            _discountAmount = 0;
+        }
+
+        _totalNetAfterDiscount = _totalNet - _discountAmount;
+
+        // Calculate VAT proportionally after discount
+        if (_totalNet > 0)
+        {
+            var discountRatio = _totalNetAfterDiscount / _totalNet;
+            _totalVat = _invoice.Items.Sum(i => i.TotalVat) * discountRatio;
+        }
+        else
+        {
+            _totalVat = 0;
+        }
+
+        _totalGross = _totalNetAfterDiscount + _totalVat;
         _totalDownPayments = _invoice.DownPayments.Sum(d => d.Amount);
         _amountDue = _totalGross - _totalDownPayments;
         StateHasChanged();
@@ -447,6 +555,28 @@
         {
             _errorMessage = "Abschläge dürfen die Bruttosumme nicht übersteigen.";
             return;
+        }
+
+        // Rabatt: Validierung
+        if (_invoice.DiscountType != DiscountType.None)
+        {
+            if (!_invoice.DiscountValue.HasValue || _invoice.DiscountValue.Value <= 0)
+            {
+                _errorMessage = "Rabatt muss größer als 0 sein.";
+                return;
+            }
+
+            if (_invoice.DiscountType == DiscountType.Percentage && _invoice.DiscountValue.Value > 100)
+            {
+                _errorMessage = "Prozentualer Rabatt darf nicht über 100% liegen.";
+                return;
+            }
+
+            if (_invoice.DiscountType == DiscountType.Absolute && _invoice.DiscountValue.Value > _totalNet)
+            {
+                _errorMessage = "Absoluter Rabatt darf die Nettosumme nicht übersteigen.";
+                return;
+            }
         }
 
         _saving = true;

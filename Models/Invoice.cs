@@ -47,6 +47,10 @@ public class Invoice
 
     public int PrintCount { get; set; } = 0;
 
+    // Discount
+    public DiscountType DiscountType { get; set; } = DiscountType.None;
+    public decimal? DiscountValue { get; set; }
+
     // Navigation Properties
     public Customer Customer { get; set; } = null!;
     public List<InvoiceItem> Items { get; set; } = new();
@@ -57,10 +61,38 @@ public class Invoice
     public decimal TotalNet => Items.Sum(i => i.TotalNet);
 
     [NotMapped]
-    public decimal TotalVat => Items.Sum(i => i.TotalVat);
+    public decimal DiscountAmount
+    {
+        get
+        {
+            if (DiscountType == DiscountType.None || !DiscountValue.HasValue)
+                return 0;
+
+            if (DiscountType == DiscountType.Percentage)
+                return TotalNet * (DiscountValue.Value / 100);
+
+            return DiscountValue.Value; // Absolute
+        }
+    }
 
     [NotMapped]
-    public decimal TotalGross => Items.Sum(i => i.TotalGross);
+    public decimal TotalNetAfterDiscount => TotalNet - DiscountAmount;
+
+    [NotMapped]
+    public decimal TotalVat
+    {
+        get
+        {
+            if (TotalNet == 0) return 0;
+
+            // Calculate VAT proportionally after discount
+            var discountRatio = TotalNetAfterDiscount / TotalNet;
+            return Items.Sum(i => i.TotalVat) * discountRatio;
+        }
+    }
+
+    [NotMapped]
+    public decimal TotalGross => TotalNetAfterDiscount + TotalVat;
 
     [NotMapped]
     public decimal TotalDownPayments => DownPayments?.Sum(d => d.Amount) ?? 0;

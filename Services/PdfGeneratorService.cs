@@ -309,6 +309,25 @@ public class PdfGeneratorService : IPdfGeneratorService
                     row.ConstantItem(100).AlignRight().Text(invoice.TotalNet.ToString("C2", _germanCulture)).FontSize(10);
                 });
 
+                // Rabatt anzeigen, falls vorhanden
+                if (invoice.DiscountAmount > 0)
+                {
+                    sumColumn.Item().PaddingTop(3).Row(row =>
+                    {
+                        var discountText = invoice.DiscountType == DiscountType.Percentage
+                            ? $"Rabatt ({invoice.DiscountValue}%):"
+                            : "Rabatt:";
+                        row.RelativeItem().Text(discountText).FontSize(10).FontColor(Colors.TextSecondary);
+                        row.ConstantItem(100).AlignRight().Text($"-{invoice.DiscountAmount.ToString("C2", _germanCulture)}").FontSize(10).FontColor(Colors.TextSecondary);
+                    });
+
+                    sumColumn.Item().PaddingTop(3).Row(row =>
+                    {
+                        row.RelativeItem().Text("Zwischensumme:").FontSize(10);
+                        row.ConstantItem(100).AlignRight().Text(invoice.TotalNetAfterDiscount.ToString("C2", _germanCulture)).FontSize(10);
+                    });
+                }
+
                 sumColumn.Item().PaddingTop(3).Row(row =>
                 {
                     var vatText = company.IsKleinunternehmer
@@ -565,6 +584,25 @@ public class PdfGeneratorService : IPdfGeneratorService
                     row.ConstantItem(100).AlignRight().Text(invoice.TotalNet.ToString("C2", _germanCulture)).FontSize(10);
                 });
 
+                // Rabatt anzeigen, falls vorhanden
+                if (invoice.DiscountAmount > 0)
+                {
+                    sumColumn.Item().PaddingTop(3).Row(row =>
+                    {
+                        var discountText = invoice.DiscountType == DiscountType.Percentage
+                            ? $"Rabatt ({invoice.DiscountValue}%):"
+                            : "Rabatt:";
+                        row.RelativeItem().Text(discountText).FontSize(10).FontColor(Colors.TextSecondary);
+                        row.ConstantItem(100).AlignRight().Text($"-{invoice.DiscountAmount.ToString("C2", _germanCulture)}").FontSize(10).FontColor(Colors.TextSecondary);
+                    });
+
+                    sumColumn.Item().PaddingTop(3).Row(row =>
+                    {
+                        row.RelativeItem().Text("Zwischensumme:").FontSize(10);
+                        row.ConstantItem(100).AlignRight().Text(invoice.TotalNetAfterDiscount.ToString("C2", _germanCulture)).FontSize(10);
+                    });
+                }
+
                 sumColumn.Item().PaddingTop(3).Row(row =>
                 {
                     var vatText = company.IsKleinunternehmer ? "MwSt (0% §19 UStG):" : $"MwSt ({invoice.Items.FirstOrDefault()?.VatRate ?? 0}%):";
@@ -813,6 +851,25 @@ public class PdfGeneratorService : IPdfGeneratorService
                     row.RelativeItem().Text("Nettosumme:").FontSize(10).FontColor("#FFFFFF");
                     row.ConstantItem(100).AlignRight().Text(invoice.TotalNet.ToString("C2", _germanCulture)).FontSize(10).FontColor("#FFFFFF");
                 });
+
+                // Rabatt anzeigen, falls vorhanden
+                if (invoice.DiscountAmount > 0)
+                {
+                    sumColumn.Item().PaddingTop(3).Row(row =>
+                    {
+                        var discountText = invoice.DiscountType == DiscountType.Percentage
+                            ? $"Rabatt ({invoice.DiscountValue}%):"
+                            : "Rabatt:";
+                        row.RelativeItem().Text(discountText).FontSize(10).FontColor("#FFFFFF").Opacity(0.8);
+                        row.ConstantItem(100).AlignRight().Text($"-{invoice.DiscountAmount.ToString("C2", _germanCulture)}").FontSize(10).FontColor("#FFFFFF").Opacity(0.8);
+                    });
+
+                    sumColumn.Item().PaddingTop(3).Row(row =>
+                    {
+                        row.RelativeItem().Text("Zwischensumme:").FontSize(10).FontColor("#FFFFFF");
+                        row.ConstantItem(100).AlignRight().Text(invoice.TotalNetAfterDiscount.ToString("C2", _germanCulture)).FontSize(10).FontColor("#FFFFFF");
+                    });
+                }
 
                 sumColumn.Item().PaddingTop(3).Row(row =>
                 {
