@@ -42,6 +42,12 @@ public class Invoice
 
     public int EmailSendCount { get; set; } = 0;
 
+    [MaxLength(500)]
+    public string? EmailCcRecipients { get; set; }
+
+    [MaxLength(500)]
+    public string? EmailBccRecipients { get; set; }
+
     // Print Tracking
     public DateTime? PrintedAt { get; set; }
 

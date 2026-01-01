@@ -22,6 +22,28 @@
                           Lines="4"
                           Placeholder="Fügen Sie hier eine persönliche Nachricht ein (optional)" />
 
+            <MudExpansionPanels>
+                <MudExpansionPanel Text="Weitere Empfänger (optional)" IsInitiallyExpanded="@_hasAdditionalRecipients">
+                    <MudStack Spacing="2">
+                        <MudTextField @bind-Value="_ccEmails"
+                                      Label="CC (Kopie)"
+                                      Variant="Variant.Outlined"
+                                      Placeholder="email1@beispiel.de, email2@beispiel.de"
+                                      HelperText="Mehrere Adressen mit Komma trennen"
+                                      Validation="@(new Func<string, string?>(ValidateEmailList))"
+                                      Immediate="false" />
+
+                        <MudTextField @bind-Value="_bccEmails"
+                                      Label="BCC (Blindkopie)"
+                                      Variant="Variant.Outlined"
+                                      Placeholder="email@beispiel.de"
+                                      HelperText="Empfänger sehen diese Adressen nicht"
+                                      Validation="@(new Func<string, string?>(ValidateEmailList))"
+                                      Immediate="false" />
+                    </MudStack>
+                </MudExpansionPanel>
+            </MudExpansionPanels>
+
             <MudRadioGroup @bind-Value="_selectedFormat" T="EmailAttachmentFormat">
                 <MudText Typo="Typo.subtitle2" Class="mb-2">Anhang-Format:</MudText>
 
@@ -160,18 +182,30 @@
     public string? CustomerEmail { get; set; }
 
     [Parameter]
-    public EventCallback<(string Email, string? Message, EmailAttachmentFormat Format)> OnSend { get; set; }
+    public EventCallback<(string Email, string? Message, EmailAttachmentFormat Format, string? CcEmails, string? BccEmails)> OnSend { get; set; }
 
     private string _recipientEmail = string.Empty;
     private string _customMessage = string.Empty;
+    private string _ccEmails = string.Empty;
+    private string _bccEmails = string.Empty;
     private bool _sending = false;
     private EmailAttachmentFormat _selectedFormat = EmailAttachmentFormat.NormalPdf;
     private bool _isXRechnungValid = false;
     private List<string> _validationErrors = new();
+    private bool _hasAdditionalRecipients = false;
 
     protected override async Task OnInitializedAsync()
     {
         _recipientEmail = CustomerEmail ?? string.Empty;
+
+        // Pre-fill CC/BCC from last send if available
+        if (Invoice != null)
+        {
+            _ccEmails = Invoice.EmailCcRecipients ?? string.Empty;
+            _bccEmails = Invoice.EmailBccRecipients ?? string.Empty;
+            _hasAdditionalRecipients = !string.IsNullOrWhiteSpace(_ccEmails) || !string.IsNullOrWhiteSpace(_bccEmails);
+        }
+
         await ValidateXRechnungSupport();
     }
 
@@ -209,6 +243,22 @@
             return;
         }
 
+        // Validate CC/BCC if provided
+        var ccValidation = ValidateEmailList(_ccEmails);
+        var bccValidation = ValidateEmailList(_bccEmails);
+
+        if (ccValidation != null)
+        {
+            Snackbar.Add(ccValidation, Severity.Error);
+            return;
+        }
+
+        if (bccValidation != null)
+        {
+            Snackbar.Add(bccValidation, Severity.Error);
+            return;
+        }
+
         if (_selectedFormat != EmailAttachmentFormat.NormalPdf && !_isXRechnungValid)
         {
             Snackbar.Add("XRechnung-Formate erfordern vollständige Daten.", Severity.Warning);
@@ -223,7 +273,9 @@
             await OnSend.InvokeAsync((
                 _recipientEmail.Trim(),
                 string.IsNullOrWhiteSpace(_customMessage) ? null : _customMessage.Trim(),
-                _selectedFormat));
+                _selectedFormat,
+                string.IsNullOrWhiteSpace(_ccEmails) ? null : _ccEmails.Trim(),
+                string.IsNullOrWhiteSpace(_bccEmails) ? null : _bccEmails.Trim()));
             MudDialog.Close(DialogResult.Ok(true));
         }
         catch
@@ -244,6 +296,28 @@
         if (!IsValidEmail(email))
         {
             return "Ungültige E-Mail-Adresse";
+        }
+
+        return null;
+    }
+
+    private string? ValidateEmailList(string emailString)
+    {
+        if (string.IsNullOrWhiteSpace(emailString))
+            return null; // Empty is valid
+
+        var emails = emailString
+            .Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries)
+            .Select(e => e.Trim())
+            .Where(e => !string.IsNullOrWhiteSpace(e))
+            .ToList();
+
+        foreach (var email in emails)
+        {
+            if (!IsValidEmail(email))
+            {
+                return $"Ungültige E-Mail-Adresse: {email}";
+            }
         }
 
         return null;

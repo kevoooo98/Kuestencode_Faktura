@@ -551,14 +551,14 @@
         {
             { x => x.Invoice, _invoice },
             { x => x.CustomerEmail, _invoice.Customer?.Email },
-            { x => x.OnSend, EventCallback.Factory.Create<(string Email, string? Message, EmailAttachmentFormat Format)>(this, SendInvoiceEmail) }
+            { x => x.OnSend, EventCallback.Factory.Create<(string Email, string? Message, EmailAttachmentFormat Format, string? CcEmails, string? BccEmails)>(this, SendInvoiceEmail) }
         };
 
         var options = new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Small, FullWidth = true };
         var dialog = await DialogService.ShowAsync<SendEmailDialog>("E-Mail versenden", parameters, options);
     }
 
-    private async Task SendInvoiceEmail((string Email, string? Message, EmailAttachmentFormat Format) data)
+    private async Task SendInvoiceEmail((string Email, string? Message, EmailAttachmentFormat Format, string? CcEmails, string? BccEmails) data)
     {
         if (_invoice == null) return;
 
@@ -568,7 +568,9 @@
                 _invoice.Id,
                 data.Email,
                 data.Message,
-                data.Format);
+                data.Format,
+                data.CcEmails,
+                data.BccEmails);
 
             if (success)
             {

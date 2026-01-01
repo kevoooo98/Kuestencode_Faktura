@@ -41,6 +41,7 @@ builder.Services.AddScoped<IDashboardService, DashboardService>();
 builder.Services.AddScoped<IXRechnungService, XRechnungService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IPreviewService, PreviewService>();
+builder.Services.AddScoped<IEmailValidationService, EmailValidationService>();
 
 // Register Background Services
 builder.Services.AddHostedService<InvoiceOverdueService>();

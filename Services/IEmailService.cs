@@ -8,6 +8,8 @@ public interface IEmailService
         int invoiceId,
         string recipientEmail,
         string? customMessage = null,
-        EmailAttachmentFormat format = EmailAttachmentFormat.NormalPdf);
+        EmailAttachmentFormat format = EmailAttachmentFormat.NormalPdf,
+        string? ccEmails = null,
+        string? bccEmails = null);
     Task<(bool success, string? errorMessage)> TestEmailConnectionAsync(Company company);
 }

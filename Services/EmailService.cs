@@ -39,7 +39,9 @@ public class EmailService : IEmailService
         int invoiceId,
         string recipientEmail,
         string? customMessage = null,
-        EmailAttachmentFormat format = EmailAttachmentFormat.NormalPdf)
+        EmailAttachmentFormat format = EmailAttachmentFormat.NormalPdf,
+        string? ccEmails = null,
+        string? bccEmails = null)
     {
         try
         {
@@ -70,6 +72,34 @@ public class EmailService : IEmailService
             ));
             message.To.Add(MailboxAddress.Parse(recipientEmail));
             message.Subject = $"Ihre Rechnung {invoice.InvoiceNumber} - {message.From}";
+
+            // Add CC recipients
+            if (!string.IsNullOrWhiteSpace(ccEmails))
+            {
+                var ccAddresses = ccEmails
+                    .Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries)
+                    .Select(e => e.Trim())
+                    .Where(e => !string.IsNullOrWhiteSpace(e));
+
+                foreach (var cc in ccAddresses)
+                {
+                    message.Cc.Add(MailboxAddress.Parse(cc));
+                }
+            }
+
+            // Add BCC recipients
+            if (!string.IsNullOrWhiteSpace(bccEmails))
+            {
+                var bccAddresses = bccEmails
+                    .Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries)
+                    .Select(e => e.Trim())
+                    .Where(e => !string.IsNullOrWhiteSpace(e));
+
+                foreach (var bcc in bccAddresses)
+                {
+                    message.Bcc.Add(MailboxAddress.Parse(bcc));
+                }
+            }
 
             // Create email body
             var bodyBuilder = new BodyBuilder();
@@ -152,6 +182,8 @@ public class EmailService : IEmailService
             invoice.EmailSentAt = DateTime.UtcNow;
             invoice.EmailSentTo = recipientEmail;
             invoice.EmailSendCount++;
+            invoice.EmailCcRecipients = ccEmails;
+            invoice.EmailBccRecipients = bccEmails;
 
             // If status is Draft, change to Sent
             if (invoice.Status == InvoiceStatus.Draft)
