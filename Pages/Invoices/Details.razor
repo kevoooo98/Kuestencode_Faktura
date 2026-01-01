@@ -151,6 +151,33 @@
                     </MudTable>
                 </MudItem>
 
+                <!-- Abschläge -->
+                @if (_invoice.DownPayments.Any())
+                {
+                    <MudItem xs="12" Class="mt-4">
+                        <MudText Typo="Typo.h6" GutterBottom="true">Abschläge</MudText>
+                        <MudTable Items="@_invoice.DownPayments" Dense="true" Hover="true" Elevation="0">
+                            <HeaderContent>
+                                <MudTh>Beschreibung</MudTh>
+                                <MudTh Style="text-align: right">Betrag</MudTh>
+                                <MudTh Style="text-align: right">Datum</MudTh>
+                            </HeaderContent>
+                            <RowTemplate Context="downPayment">
+                                <MudTd DataLabel="Beschreibung">@downPayment.Description</MudTd>
+                                <MudTd DataLabel="Betrag" Style="text-align: right">@downPayment.Amount.ToString("C2", _culture)</MudTd>
+                                <MudTd DataLabel="Datum" Style="text-align: right">
+                                    @(downPayment.PaymentDate.HasValue ? downPayment.PaymentDate.Value.ToString("dd.MM.yyyy") : "-")
+                                </MudTd>
+                            </RowTemplate>
+                            <FooterContent>
+                                <MudTh></MudTh>
+                                <MudTh Style="text-align: right"><strong>Summe Abschläge:</strong></MudTh>
+                                <MudTh Style="text-align: right"><strong>@_invoice.TotalDownPayments.ToString("C2", _culture)</strong></MudTh>
+                            </FooterContent>
+                        </MudTable>
+                    </MudItem>
+                }
+
                 <!-- Summen -->
                 <MudItem xs="12" Class="mt-4">
                     <MudPaper Elevation="2" Class="pa-4" Style="max-width: 400px; margin-left: auto;">
@@ -160,14 +187,26 @@
                                 <MudText>@_invoice.TotalNet.ToString("C2", _culture)</MudText>
                             </MudStack>
                             <MudStack Row="true" Justify="Justify.SpaceBetween">
-                                <MudText>@(_company?.IsKleinunternehmer == true ? "MwSt (0%):" : "MwSt (19%):")</MudText>
+                                <MudText>@(_company?.IsKleinunternehmer == true ? "MwSt (0%, §19 UStG):" : "MwSt (19%):")</MudText>
                                 <MudText>@_invoice.TotalVat.ToString("C2", _culture)</MudText>
                             </MudStack>
                             <MudDivider />
                             <MudStack Row="true" Justify="Justify.SpaceBetween">
-                                <MudText Typo="Typo.h6">Bruttosumme:</MudText>
-                                <MudText Typo="Typo.h6">@_invoice.TotalGross.ToString("C2", _culture)</MudText>
+                                <MudText Typo="Typo.subtitle1">Bruttosumme:</MudText>
+                                <MudText Typo="Typo.subtitle1">@_invoice.TotalGross.ToString("C2", _culture)</MudText>
                             </MudStack>
+                            @if (_invoice.TotalDownPayments > 0)
+                            {
+                                <MudStack Row="true" Justify="Justify.SpaceBetween">
+                                    <MudText>Abschläge:</MudText>
+                                    <MudText Color="Color.Error">-@_invoice.TotalDownPayments.ToString("C2", _culture)</MudText>
+                                </MudStack>
+                                <MudDivider DividerType="DividerType.FullWidth" Style="border-width: 2px;" />
+                                <MudStack Row="true" Justify="Justify.SpaceBetween">
+                                    <MudText Typo="Typo.h6">Zu zahlen:</MudText>
+                                    <MudText Typo="Typo.h6">@_invoice.AmountDue.ToString("C2", _culture)</MudText>
+                                </MudStack>
+                            }
                             @if (_company?.IsKleinunternehmer == true)
                             {
                                 <MudAlert Severity="Severity.Info" Dense="true" Class="mt-2">

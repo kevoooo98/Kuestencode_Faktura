@@ -237,7 +237,9 @@ public class EmailService : IEmailService
     private string BuildHtmlEmailBody(Invoice invoice, Company company, string? customMessage)
     {
         var culture = new CultureInfo("de-DE");
-        var formattedTotal = invoice.TotalGross.ToString("C", culture);
+        // Use AmountDue if there are down payments, otherwise use TotalGross
+        var paymentAmount = invoice.TotalDownPayments > 0 ? invoice.AmountDue : invoice.TotalGross;
+        var formattedTotal = paymentAmount.ToString("C", culture);
         var formattedDate = invoice.InvoiceDate.ToString("dd.MM.yyyy", culture);
         var formattedDueDate = invoice.DueDate?.ToString("dd.MM.yyyy", culture) ?? "Sofort fällig";
 
@@ -310,7 +312,9 @@ public class EmailService : IEmailService
     private string BuildFallbackHtmlEmailBody(Invoice invoice, Company company, string? customMessage)
     {
         var culture = new CultureInfo("de-DE");
-        var formattedTotal = invoice.TotalGross.ToString("C", culture);
+        // Use AmountDue if there are down payments, otherwise use TotalGross
+        var paymentAmount = invoice.TotalDownPayments > 0 ? invoice.AmountDue : invoice.TotalGross;
+        var formattedTotal = paymentAmount.ToString("C", culture);
         var formattedDate = invoice.InvoiceDate.ToString("dd.MM.yyyy", culture);
         var formattedDueDate = invoice.DueDate?.ToString("dd.MM.yyyy", culture) ?? "Sofort fällig";
 
@@ -418,7 +422,9 @@ public class EmailService : IEmailService
     private string BuildPlainTextEmailBody(Invoice invoice, Company company, string? customMessage)
     {
         var culture = new CultureInfo("de-DE");
-        var formattedTotal = invoice.TotalGross.ToString("C", culture);
+        // Use AmountDue if there are down payments, otherwise use TotalGross
+        var paymentAmount = invoice.TotalDownPayments > 0 ? invoice.AmountDue : invoice.TotalGross;
+        var formattedTotal = paymentAmount.ToString("C", culture);
         var formattedDate = invoice.InvoiceDate.ToString("dd.MM.yyyy", culture);
         var formattedDueDate = invoice.DueDate?.ToString("dd.MM.yyyy", culture) ?? "Sofort fällig";
 

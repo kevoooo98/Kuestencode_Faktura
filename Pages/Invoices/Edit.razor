@@ -120,6 +120,48 @@
                     Position hinzufügen
                 </MudButton>
 
+                <!-- Abschläge (optional) -->
+                <MudText Typo="Typo.h6" Class="mt-6 mb-2">Abschläge (optional)</MudText>
+                @if (_invoice.DownPayments.Count > 0)
+                {
+                    <MudTable Items="@_invoice.DownPayments" Dense="true" Hover="true" Breakpoint="Breakpoint.Sm">
+                        <HeaderContent>
+                            <MudTh>Beschreibung</MudTh>
+                            <MudTh Style="width: 150px; text-align: right">Betrag</MudTh>
+                            <MudTh Style="width: 150px">Datum</MudTh>
+                            <MudTh Style="width: 60px"></MudTh>
+                        </HeaderContent>
+                        <RowTemplate Context="downPayment">
+                            <MudTd DataLabel="Beschreibung">
+                                <MudTextField @bind-Value="downPayment.Description" Margin="Margin.Dense"
+                                             Variant="Variant.Outlined" Required="true"
+                                             Placeholder="z.B. Anzahlung vom 15.12.2024"
+                                             OnBlur="RecalculateTotals" />
+                            </MudTd>
+                            <MudTd DataLabel="Betrag" Style="text-align: right">
+                                <MudNumericField @bind-Value="downPayment.Amount" Margin="Margin.Dense"
+                                                Variant="Variant.Outlined" Min="0.01m" Step="1m"
+                                                Format="C2" HideSpinButtons="true" Culture="@_culture"
+                                                OnBlur="RecalculateTotals" />
+                            </MudTd>
+                            <MudTd DataLabel="Datum">
+                                <MudDatePicker @bind-Date="downPayment.PaymentDate" Margin="Margin.Dense"
+                                              Variant="Variant.Outlined" DateFormat="dd.MM.yyyy"
+                                              Placeholder="Optional" />
+                            </MudTd>
+                            <MudTd DataLabel="">
+                                <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small"
+                                              Color="Color.Error" OnClick="@(() => RemoveDownPayment(downPayment))" />
+                            </MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                }
+
+                <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
+                          StartIcon="@Icons.Material.Filled.Add" OnClick="AddDownPayment" Class="mt-2">
+                    Abschlag hinzufügen
+                </MudButton>
+
                 <!-- Summen -->
                 <MudPaper Elevation="2" Class="pa-4 mt-6" Style="max-width: 400px; margin-left: auto;">
                     <MudText Typo="Typo.h6" GutterBottom="true">Summen</MudText>
@@ -129,14 +171,32 @@
                             <MudText>@_totalNet.ToString("C2", _culture)</MudText>
                         </MudStack>
                         <MudStack Row="true" Justify="Justify.SpaceBetween">
-                            <MudText>@(_company?.IsKleinunternehmer == true ? "MwSt (0%):" : "MwSt (19%):")</MudText>
+                            <MudText>@(_company?.IsKleinunternehmer == true ? "MwSt (0%, §19 UStG):" : "MwSt (19%):")</MudText>
                             <MudText>@_totalVat.ToString("C2", _culture)</MudText>
                         </MudStack>
                         <MudDivider />
                         <MudStack Row="true" Justify="Justify.SpaceBetween">
-                            <MudText Typo="Typo.h6">Bruttosumme:</MudText>
-                            <MudText Typo="Typo.h6">@_totalGross.ToString("C2", _culture)</MudText>
+                            <MudText Typo="Typo.subtitle1">Bruttosumme:</MudText>
+                            <MudText Typo="Typo.subtitle1">@_totalGross.ToString("C2", _culture)</MudText>
                         </MudStack>
+                        @if (_totalDownPayments > 0)
+                        {
+                            <MudStack Row="true" Justify="Justify.SpaceBetween">
+                                <MudText>Abschläge:</MudText>
+                                <MudText Color="Color.Error">-@_totalDownPayments.ToString("C2", _culture)</MudText>
+                            </MudStack>
+                            <MudDivider DividerType="DividerType.FullWidth" Style="border-width: 2px;" />
+                            <MudStack Row="true" Justify="Justify.SpaceBetween">
+                                <MudText Typo="Typo.h6">Zu zahlen:</MudText>
+                                <MudText Typo="Typo.h6">@_amountDue.ToString("C2", _culture)</MudText>
+                            </MudStack>
+                            @if (_amountDue < 0)
+                            {
+                                <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-2">
+                                    Warnung: Abschläge übersteigen Rechnungsbetrag
+                                </MudAlert>
+                            }
+                        }
                         @if (_company?.IsKleinunternehmer == true)
                         {
                             <MudAlert Severity="Severity.Info" Dense="true" Class="mt-2">
@@ -207,7 +267,7 @@
     private bool _loading = true;
     private bool _saving = false;
     private string? _errorMessage;
-    private decimal _totalNet, _totalVat, _totalGross;
+    private decimal _totalNet, _totalVat, _totalGross, _totalDownPayments, _amountDue;
     private System.Globalization.CultureInfo _culture = new System.Globalization.CultureInfo("de-DE");
 
     protected override async Task OnInitializedAsync()
@@ -283,6 +343,28 @@
         RecalculateTotals();
     }
 
+    private void AddDownPayment()
+    {
+        if (_invoice == null) return;
+
+        _invoice.DownPayments.Add(new DownPayment
+        {
+            Description = string.Empty,
+            Amount = 0,
+            PaymentDate = null,
+            InvoiceId = _invoice.Id
+        });
+        StateHasChanged();
+    }
+
+    private void RemoveDownPayment(DownPayment downPayment)
+    {
+        if (_invoice == null) return;
+
+        _invoice.DownPayments.Remove(downPayment);
+        RecalculateTotals();
+    }
+
     private void RecalculateTotals()
     {
         if (_invoice == null) return;
@@ -297,6 +379,8 @@
         _totalNet = _invoice.Items.Sum(i => i.TotalNet);
         _totalVat = _invoice.Items.Sum(i => i.TotalVat);
         _totalGross = _invoice.Items.Sum(i => i.TotalGross);
+        _totalDownPayments = _invoice.DownPayments.Sum(d => d.Amount);
+        _amountDue = _totalGross - _totalDownPayments;
         StateHasChanged();
     }
 
@@ -343,6 +427,25 @@
         if (_invoiceDate.Value > DateTime.Today)
         {
             _errorMessage = "Rechnungsdatum darf nicht in der Zukunft liegen.";
+            return;
+        }
+
+        // Abschläge: Validierung
+        if (_invoice.DownPayments.Any(d => d.Amount <= 0))
+        {
+            _errorMessage = "Abschlag-Betrag muss größer als 0 sein.";
+            return;
+        }
+
+        if (_invoice.DownPayments.Any(d => string.IsNullOrWhiteSpace(d.Description)))
+        {
+            _errorMessage = "Beschreibung für Abschläge ist erforderlich.";
+            return;
+        }
+
+        if (_totalDownPayments > _totalGross)
+        {
+            _errorMessage = "Abschläge dürfen die Bruttosumme nicht übersteigen.";
             return;
         }
 

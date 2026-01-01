@@ -40,6 +40,7 @@ public class PdfGeneratorService : IPdfGeneratorService
         var invoice = _context.Invoices
             .Include(i => i.Customer)
             .Include(i => i.Items)
+            .Include(i => i.DownPayments)
             .FirstOrDefault(i => i.Id == invoiceId);
 
         if (invoice == null)
@@ -321,9 +322,36 @@ public class PdfGeneratorService : IPdfGeneratorService
 
                 sumColumn.Item().Row(row =>
                 {
-                    row.RelativeItem().Text("Bruttosumme:").FontSize(12).Bold();
-                    row.ConstantItem(100).AlignRight().Text(invoice.TotalGross.ToString("C2", _germanCulture)).FontSize(12).Bold();
+                    row.RelativeItem().Text("Bruttosumme:").FontSize(11);
+                    row.ConstantItem(100).AlignRight().Text(invoice.TotalGross.ToString("C2", _germanCulture)).FontSize(11);
                 });
+
+                // Abschläge anzeigen, falls vorhanden
+                if (invoice.TotalDownPayments > 0)
+                {
+                    // Abschläge auflisten
+                    sumColumn.Item().PaddingTop(8).Text("Abgezogen:").FontSize(9).FontColor(Colors.TextSecondary);
+
+                    foreach (var downPayment in invoice.DownPayments)
+                    {
+                        sumColumn.Item().PaddingTop(2).Row(row =>
+                        {
+                            var dateText = downPayment.PaymentDate.HasValue
+                                ? $"{downPayment.Description} ({downPayment.PaymentDate.Value:dd.MM.yyyy})"
+                                : downPayment.Description;
+                            row.RelativeItem().Text(dateText).FontSize(9).FontColor(Colors.TextSecondary);
+                            row.ConstantItem(100).AlignRight().Text($"-{downPayment.Amount.ToString("C2", _germanCulture)}").FontSize(9).FontColor(Colors.TextSecondary);
+                        });
+                    }
+
+                    sumColumn.Item().PaddingTop(8).BorderTop(2).BorderColor(Colors.Divider).PaddingTop(5);
+
+                    sumColumn.Item().Row(row =>
+                    {
+                        row.RelativeItem().Text("Zu zahlen:").FontSize(12).Bold();
+                        row.ConstantItem(100).AlignRight().Text(invoice.AmountDue.ToString("C2", _germanCulture)).FontSize(12).Bold();
+                    });
+                }
             });
 
             // Kleinunternehmer-Hinweis
@@ -548,9 +576,35 @@ public class PdfGeneratorService : IPdfGeneratorService
 
                 sumColumn.Item().Row(row =>
                 {
-                    row.RelativeItem().Text("Bruttosumme:").FontSize(12).Bold();
-                    row.ConstantItem(100).AlignRight().Text(invoice.TotalGross.ToString("C2", _germanCulture)).FontSize(12).Bold();
+                    row.RelativeItem().Text("Bruttosumme:").FontSize(11);
+                    row.ConstantItem(100).AlignRight().Text(invoice.TotalGross.ToString("C2", _germanCulture)).FontSize(11);
                 });
+
+                // Abschläge anzeigen, falls vorhanden
+                if (invoice.TotalDownPayments > 0)
+                {
+                    sumColumn.Item().PaddingTop(8).Text("Abgezogen:").FontSize(9).FontColor(Colors.TextSecondary);
+
+                    foreach (var downPayment in invoice.DownPayments)
+                    {
+                        sumColumn.Item().PaddingTop(2).Row(row =>
+                        {
+                            var dateText = downPayment.PaymentDate.HasValue
+                                ? $"{downPayment.Description} ({downPayment.PaymentDate.Value:dd.MM.yyyy})"
+                                : downPayment.Description;
+                            row.RelativeItem().Text(dateText).FontSize(9).FontColor(Colors.TextSecondary);
+                            row.ConstantItem(100).AlignRight().Text($"-{downPayment.Amount.ToString("C2", _germanCulture)}").FontSize(9).FontColor(Colors.TextSecondary);
+                        });
+                    }
+
+                    sumColumn.Item().PaddingTop(8).BorderTop(2).BorderColor(Colors.Divider).PaddingTop(5);
+
+                    sumColumn.Item().Row(row =>
+                    {
+                        row.RelativeItem().Text("Zu zahlen:").FontSize(12).Bold();
+                        row.ConstantItem(100).AlignRight().Text(invoice.AmountDue.ToString("C2", _germanCulture)).FontSize(12).Bold();
+                    });
+                }
             });
 
             if (company.IsKleinunternehmer)
@@ -771,9 +825,35 @@ public class PdfGeneratorService : IPdfGeneratorService
 
                 sumColumn.Item().Row(row =>
                 {
-                    row.RelativeItem().Text("Bruttosumme:").FontSize(13).Bold().FontColor("#FFFFFF");
-                    row.ConstantItem(100).AlignRight().Text(invoice.TotalGross.ToString("C2", _germanCulture)).FontSize(13).Bold().FontColor("#FFFFFF");
+                    row.RelativeItem().Text("Bruttosumme:").FontSize(12).FontColor("#FFFFFF");
+                    row.ConstantItem(100).AlignRight().Text(invoice.TotalGross.ToString("C2", _germanCulture)).FontSize(12).FontColor("#FFFFFF");
                 });
+
+                // Abschläge anzeigen, falls vorhanden
+                if (invoice.TotalDownPayments > 0)
+                {
+                    sumColumn.Item().PaddingTop(8).Text("Abgezogen:").FontSize(9).FontColor("#FFFFFF").Opacity(0.8);
+
+                    foreach (var downPayment in invoice.DownPayments)
+                    {
+                        sumColumn.Item().PaddingTop(2).Row(row =>
+                        {
+                            var dateText = downPayment.PaymentDate.HasValue
+                                ? $"{downPayment.Description} ({downPayment.PaymentDate.Value:dd.MM.yyyy})"
+                                : downPayment.Description;
+                            row.RelativeItem().Text(dateText).FontSize(9).FontColor("#FFFFFF").Opacity(0.8);
+                            row.ConstantItem(100).AlignRight().Text($"-{downPayment.Amount.ToString("C2", _germanCulture)}").FontSize(9).FontColor("#FFFFFF").Opacity(0.8);
+                        });
+                    }
+
+                    sumColumn.Item().PaddingTop(8).BorderTop(2).BorderColor("#FFFFFF").PaddingTop(5);
+
+                    sumColumn.Item().Row(row =>
+                    {
+                        row.RelativeItem().Text("Zu zahlen:").FontSize(13).Bold().FontColor("#FFFFFF");
+                        row.ConstantItem(100).AlignRight().Text(invoice.AmountDue.ToString("C2", _germanCulture)).FontSize(13).Bold().FontColor("#FFFFFF");
+                    });
+                }
             });
 
             if (company.IsKleinunternehmer)
@@ -877,7 +957,9 @@ public class PdfGeneratorService : IPdfGeneratorService
             ? company.AccountHolder
             : company.OwnerFullName;
 
-        var amount = invoice.TotalGross.ToString("F2", System.Globalization.CultureInfo.InvariantCulture);
+        // Use AmountDue if there are down payments, otherwise use TotalGross
+        var paymentAmount = invoice.TotalDownPayments > 0 ? invoice.AmountDue : invoice.TotalGross;
+        var amount = paymentAmount.ToString("F2", System.Globalization.CultureInfo.InvariantCulture);
         var purpose = $"Rechnung {invoice.InvoiceNumber}";
 
         // GiroCode Format

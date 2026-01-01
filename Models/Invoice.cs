@@ -50,6 +50,7 @@ public class Invoice
     // Navigation Properties
     public Customer Customer { get; set; } = null!;
     public List<InvoiceItem> Items { get; set; } = new();
+    public List<DownPayment> DownPayments { get; set; } = new();
 
     // Computed Properties
     [NotMapped]
@@ -60,4 +61,10 @@ public class Invoice
 
     [NotMapped]
     public decimal TotalGross => Items.Sum(i => i.TotalGross);
+
+    [NotMapped]
+    public decimal TotalDownPayments => DownPayments?.Sum(d => d.Amount) ?? 0;
+
+    [NotMapped]
+    public decimal AmountDue => TotalGross - TotalDownPayments;
 }
