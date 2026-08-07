@@ -1,4 +1,5 @@
 ﻿using System.Globalization;
+using System.Linq;
 using Kuestencode.Core.Models;
 using Kuestencode.Core.Interfaces;
 using Kuestencode.Rapport.Models.Timesheets;
@@ -103,12 +104,16 @@ public class TimesheetPdfService
         private readonly TimesheetDto _timesheet;
         private readonly Company _company;
         private readonly RapportSettings _settings;
+        private readonly bool _includeDescription;
 
         public TimesheetDocument(TimesheetDto timesheet, Company company, RapportSettings settings)
         {
             _timesheet = timesheet;
             _company = company;
             _settings = settings;
+            _includeDescription = timesheet.Groups
+                .SelectMany(g => g.Entries)
+                .Any(e => !string.IsNullOrWhiteSpace(e.Description));
         }
 
         public DocumentMetadata GetMetadata() => DocumentMetadata.Default;
@@ -265,13 +270,17 @@ public class TimesheetPdfService
         private void ComposeEntriesTable(IContainer container, TimesheetProjectGroupDto group)
         {
             var includeAmount = _timesheet.HourlyRate.HasValue;
+            var includeEmployee = _timesheet.ShowEmployeeColumn;
 
             container.Table(table =>
             {
                 table.ColumnsDefinition(cols =>
                 {
                     cols.ConstantColumn(70);
-                    cols.RelativeColumn();
+                    if (_includeDescription)
+                        cols.RelativeColumn();
+                    if (includeEmployee)
+                        cols.ConstantColumn(80);
                     cols.ConstantColumn(55);
                     cols.ConstantColumn(55);
                     cols.ConstantColumn(55);
@@ -282,7 +291,10 @@ public class TimesheetPdfService
                 table.Header(header =>
                 {
                     header.Cell().Element(CellHeader).Text("Datum");
-                    header.Cell().Element(CellHeader).Text("Beschreibung");
+                    if (_includeDescription)
+                        header.Cell().Element(CellHeader).Text("Beschreibung");
+                    if (includeEmployee)
+                        header.Cell().Element(CellHeader).Text("Mitarbeiter");
                     header.Cell().Element(CellHeader).AlignRight().Text("Start");
                     header.Cell().Element(CellHeader).AlignRight().Text("Ende");
                     header.Cell().Element(CellHeader).AlignRight().Text("Dauer");
@@ -296,7 +308,10 @@ public class TimesheetPdfService
                     var amount = includeAmount ? durationHours * _timesheet.HourlyRate!.Value : 0m;
 
                     table.Cell().Element(CellBody).Text(entry.Date.ToString("dd.MM.yyyy"));
-                    table.Cell().Element(CellBody).Text(string.IsNullOrWhiteSpace(entry.Description) ? "–" : entry.Description);
+                    if (_includeDescription)
+                        table.Cell().Element(CellBody).Text(string.IsNullOrWhiteSpace(entry.Description) ? "–" : entry.Description);
+                    if (includeEmployee)
+                        table.Cell().Element(CellBody).Text(string.IsNullOrWhiteSpace(entry.EmployeeName) ? "–" : entry.EmployeeName);
                     var startInBerlin = RapportTimeZone.UtcToBerlin(entry.StartTime);
                     var endInBerlin = entry.EndTime.HasValue ? RapportTimeZone.UtcToBerlin(entry.EndTime.Value) : (DateTime?)null;
                     table.Cell().Element(CellBody).AlignRight().Text(startInBerlin.ToString("HH:mm"));

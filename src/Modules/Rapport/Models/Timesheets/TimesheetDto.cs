@@ -14,4 +14,5 @@ public class TimesheetDto
     public decimal TotalHours { get; set; }
     public decimal? HourlyRate { get; set; }
     public decimal? TotalAmount { get; set; }
+    public bool ShowEmployeeColumn { get; set; }
 }

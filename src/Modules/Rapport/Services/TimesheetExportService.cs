@@ -18,19 +18,22 @@ public class TimesheetExportService
     private readonly IProjectService _projectService;
     private readonly SettingsService _settingsService;
     private readonly TimeRoundingService _roundingService;
+    private readonly TeamMemberCacheService _teamMemberCacheService;
 
     public TimesheetExportService(
         TimeEntryRepository timeEntryRepository,
         ICustomerService customerService,
         IProjectService projectService,
         SettingsService settingsService,
-        TimeRoundingService roundingService)
+        TimeRoundingService roundingService,
+        TeamMemberCacheService teamMemberCacheService)
     {
         _timeEntryRepository = timeEntryRepository;
         _customerService = customerService;
         _projectService = projectService;
         _settingsService = settingsService;
         _roundingService = roundingService;
+        _teamMemberCacheService = teamMemberCacheService;
     }
 
     public async Task<TimesheetDto> BuildAsync(TimesheetExportRequestDto request)
@@ -72,6 +75,7 @@ public class TimesheetExportService
 
         var entries = await LoadEntriesAsync(request, projectId);
         var settings = await _settingsService.GetSettingsAsync();
+        var showEmployeeColumn = await _teamMemberCacheService.HasMultipleActiveMembersAsync();
 
         var dto = new TimesheetDto
         {
@@ -90,7 +94,8 @@ public class TimesheetExportService
             },
             Project = projectId.HasValue
                 ? new TimesheetProjectInfoDto { ProjectId = projectId.Value, ProjectName = projectName ?? "" }
-                : null
+                : null,
+            ShowEmployeeColumn = showEmployeeColumn
         };
 
         var now = DateTime.UtcNow;
@@ -125,7 +130,8 @@ public class TimesheetExportService
                     EndTime = entry.EndTime,
                     Description = string.IsNullOrWhiteSpace(entry.Description) ? "" : entry.Description.Trim(),
                     Duration = netDuration,
-                    BreakMinutes = entry.BreakMinutes
+                    BreakMinutes = entry.BreakMinutes,
+                    EmployeeName = entry.TeamMemberName
                 });
 
                 groupDto.SubtotalHours += (decimal)netDuration.TotalHours;

@@ -11,4 +11,5 @@ public class TimesheetEntryDto
     public DateTime StartTime { get; set; }
     public DateTime? EndTime { get; set; }
     public int BreakMinutes { get; set; }
+    public string? EmployeeName { get; set; }
 }

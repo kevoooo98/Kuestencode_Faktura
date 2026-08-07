@@ -45,6 +45,12 @@ public class TeamMemberCacheService
         return members.FirstOrDefault(m => m.Id == id);
     }
 
+    public async Task<bool> HasMultipleActiveMembersAsync()
+    {
+        var members = await GetActiveTeamMembersAsync();
+        return members.Count > 1;
+    }
+
     public void InvalidateCache()
     {
         _cachedMembers = null;

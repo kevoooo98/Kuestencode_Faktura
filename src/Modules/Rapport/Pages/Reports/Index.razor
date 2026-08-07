@@ -15,6 +15,7 @@
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
 @inject IJSRuntime JSRuntime
+@inject TeamMemberCacheService TeamMemberCacheService
 
 <PageTitle>Auswertungen - Küstencode Rapport</PageTitle>
 
@@ -85,6 +86,14 @@
 </MudPaper>
 
 <MudPaper Elevation="1" Class="pa-4">
+    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-4">
+        <MudSelect T="string" Label="Gruppierung" Variant="Variant.Outlined" @bind-Value="_grouping" Style="max-width: 260px;">
+            <MudSelectItem T="string" Value="@("Customer")">Kunde</MudSelectItem>
+            <MudSelectItem T="string" Value="@("Project")">Projekt</MudSelectItem>
+            <MudSelectItem T="string" Value="@("Day")">Tag</MudSelectItem>
+            <MudSelectItem T="string" Value="@("CustomerProject")">Kunde + Projekt</MudSelectItem>
+        </MudSelect>
+    </MudStack>
     @if (_loading)
     {
         <MudProgressLinear Color="Color.Primary" Indeterminate="true" Class="my-2" />
@@ -140,11 +149,19 @@
                 <HeaderContent>
                     <MudTh><MudTableSortLabel SortBy="new Func<ProjectSummaryRow, object>(x => x.ProjectName)" InitialDirection="@_projectSort.InitialDirectionFor("project")" SortDirectionChanged="@(d => _projectSort.Update("project", d))">Projekt</MudTableSortLabel></MudTh>
                     <MudTh><MudTableSortLabel SortBy="new Func<ProjectSummaryRow, object>(x => x.CustomerName)" InitialDirection="@_projectSort.InitialDirectionFor("customer")" SortDirectionChanged="@(d => _projectSort.Update("customer", d))">Kunde</MudTableSortLabel></MudTh>
+                    @if (_hasMultipleEmployees)
+                    {
+                        <MudTh><MudTableSortLabel SortBy="new Func<ProjectSummaryRow, object>(x => x.TeamMemberName)" InitialDirection="@_projectSort.InitialDirectionFor("member")" SortDirectionChanged="@(d => _projectSort.Update("member", d))">Mitarbeiter</MudTableSortLabel></MudTh>
+                    }
                     <MudTh><MudTableSortLabel SortBy="new Func<ProjectSummaryRow, object>(x => x.Hours)" InitialDirection="@_projectSort.InitialDirectionFor("hours")" SortDirectionChanged="@(d => _projectSort.Update("hours", d))">Stunden</MudTableSortLabel></MudTh>
                 </HeaderContent>
                 <RowTemplate>
                     <MudTd>@context.ProjectName</MudTd>
                     <MudTd>@context.CustomerName</MudTd>
+                    @if (_hasMultipleEmployees)
+                    {
+                        <MudTd>@context.TeamMemberName</MudTd>
+                    }
                     <MudTd>@FormatHours(context.Hours)</MudTd>
                 </RowTemplate>
             </MudTable>
@@ -181,6 +198,7 @@
     private List<Customer> _selectedCustomers = new();
     private List<IProject> _selectedProjects = new();
     private bool _projectsAvailable;
+    private bool _hasMultipleEmployees;
 
     private DateTime? _fromDate = DateTime.Today.AddDays(-7);
     private DateTime? _toDate = DateTime.Today;
@@ -218,6 +236,7 @@
                 _timesheetHourlyRate = _settings.DefaultHourlyRate;
             }
             _customers = await CustomerService.GetAllAsync();
+            _hasMultipleEmployees = await TeamMemberCacheService.HasMultipleActiveMembersAsync();
         }
         catch
         {
@@ -465,7 +484,9 @@
                 e.CustomerId,
                 CustomerName = e.CustomerName ?? "Unbekannter Kunde",
                 e.ProjectId,
-                ProjectName = string.IsNullOrWhiteSpace(e.ProjectName) ? "Ohne Projekt" : e.ProjectName
+                ProjectName = string.IsNullOrWhiteSpace(e.ProjectName) ? "Ohne Projekt" : e.ProjectName,
+                e.TeamMemberId,
+                TeamMemberName = e.TeamMemberName ?? "Unbekannt"
             })
             .Select(g => new ProjectSummaryRow
             {
@@ -473,6 +494,7 @@
                 CustomerName = g.Key.CustomerName,
                 ProjectId = g.Key.ProjectId,
                 ProjectName = g.Key.ProjectName,
+                TeamMemberName = g.Key.TeamMemberName,
                 Hours = g.Sum(GetHours)
             })
             .OrderByDescending(r => r.Hours)
@@ -649,6 +671,7 @@
         public string CustomerName { get; set; } = string.Empty;
         public int? ProjectId { get; set; }
         public string ProjectName { get; set; } = string.Empty;
+        public string TeamMemberName { get; set; } = string.Empty;
         public decimal Hours { get; set; }
     }
 

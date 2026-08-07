@@ -1,4 +1,5 @@
 ﻿using System.Globalization;
+using System.Linq;
 using System.Text;
 using Kuestencode.Rapport.Models.Timesheets;
 using Kuestencode.Shared.Contracts.Rapport;
@@ -21,9 +22,22 @@ public class TimesheetCsvService
     {
         var timesheet = await _exportService.BuildAsync(request);
         var includeAmount = timesheet.HourlyRate.HasValue;
+        var includeEmployee = timesheet.ShowEmployeeColumn;
+        var includeDescription = timesheet.Groups
+            .SelectMany(g => g.Entries)
+            .Any(e => !string.IsNullOrWhiteSpace(e.Description));
 
         var sb = new StringBuilder();
-        var headers = new List<string> { "Datum", "Projekt", "Beschreibung", "Start", "Ende", "Dauer" };
+        var headers = new List<string> { "Datum", "Projekt" };
+        if (includeDescription)
+        {
+            headers.Add("Beschreibung");
+        }
+        if (includeEmployee)
+        {
+            headers.Add("Mitarbeiter");
+        }
+        headers.AddRange(new[] { "Start", "Ende", "Dauer" });
         if (includeAmount)
         {
             headers.Add("Betrag");
@@ -46,12 +60,22 @@ public class TimesheetCsvService
                 var row = new List<string>
                 {
                     entry.Date.ToString("dd.MM.yyyy"),
-                    Escape(projectName),
-                    Escape(entry.Description),
-                    startText,
-                    endText,
-                    durationText
+                    Escape(projectName)
                 };
+
+                if (includeDescription)
+                {
+                    row.Add(Escape(entry.Description));
+                }
+
+                if (includeEmployee)
+                {
+                    row.Add(Escape(entry.EmployeeName));
+                }
+
+                row.Add(startText);
+                row.Add(endText);
+                row.Add(durationText);
 
                 if (includeAmount)
                 {
