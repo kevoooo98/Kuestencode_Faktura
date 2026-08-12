@@ -33,8 +33,10 @@ public class ManualEntryTests : IClassFixture<RapportWebApplicationFactory>
         updated.Description.Should().Be("Analyse v2");
 
         await timeEntryService.SoftDeleteEntryAsync(entry.Id);
+
+        // RapportDbContext hat einen globalen Query-Filter (!IsDeleted) auf TimeEntry,
+        // daher blendet auch GetEntryAsync weich gelöschte Einträge aus.
         var fetched = await timeEntryService.GetEntryAsync(entry.Id);
-        fetched.Should().NotBeNull();
-        fetched!.IsDeleted.Should().BeTrue();
+        fetched.Should().BeNull();
     }
 }

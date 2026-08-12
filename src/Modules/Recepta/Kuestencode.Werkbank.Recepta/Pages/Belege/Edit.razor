@@ -499,14 +499,14 @@
                                                                 Value="row.AllocatedNet"
                                                                 ValueChanged="@((decimal v) => OnAllocationNetChanged(row, v))"
                                                                 Label="Netto (€)"
-                                                                Variant="Variant.Outlined" Dense="true" Margin="Margin.Dense"
+                                                                Variant="Variant.Outlined" Margin="Margin.Dense"
                                                                 Format="N2" Culture="@_culture" />
                                                 <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
                                                     <MudNumericField T="decimal"
                                                                     Value="row.AllocatedGross"
                                                                     ValueChanged="@((decimal v) => OnAllocationGrossChanged(row, v))"
                                                                     Label="Brutto (€)"
-                                                                    Variant="Variant.Outlined" Dense="true" Margin="Margin.Dense"
+                                                                    Variant="Variant.Outlined" Margin="Margin.Dense"
                                                                     Max="@(Math.Abs(_model.AmountGross))"
                                                                     Format="N2" Culture="@_culture" />
                                                     <MudIconButton Icon="@Icons.Material.Filled.DeleteOutline"

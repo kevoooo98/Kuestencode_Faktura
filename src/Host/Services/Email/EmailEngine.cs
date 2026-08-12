@@ -149,6 +149,7 @@ public class EmailEngine : IEmailEngine
         }
     }
 
+    // company.EmailSenderEmail/SmtpHost sind hier nie null: SendEmailAsync prüft company.IsEmailConfigured() vor dem Aufruf.
     private MimeMessage CreateMessage(
         Company company,
         string recipientEmail,
@@ -166,7 +167,7 @@ public class EmailEngine : IEmailEngine
             ? company.EmailSenderName
             : company.DisplayName;
 
-        message.From.Add(new MailboxAddress(senderName, company.EmailSenderEmail));
+        message.From.Add(new MailboxAddress(senderName, company.EmailSenderEmail!));
 
         // Recipient
         message.To.Add(MailboxAddress.Parse(recipientEmail));
@@ -221,7 +222,7 @@ public class EmailEngine : IEmailEngine
             : SecureSocketOptions.None;
 
         await client.ConnectAsync(
-            company.SmtpHost,
+            company.SmtpHost!,
             company.SmtpPort!.Value,
             secureSocketOptions);
 

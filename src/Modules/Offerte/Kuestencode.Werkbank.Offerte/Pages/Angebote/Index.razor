@@ -81,20 +81,23 @@
                 </MudTd>
                 <MudTd DataLabel="Summe" Style="text-align: right">@context.Bruttosumme.ToString("C2", _culture)</MudTd>
                 <MudTd DataLabel="Aktionen" Style="text-align: right">
-                    <MudIconButton Icon="@Icons.Material.Filled.Visibility"
-                                  Color="Color.Info" Size="Size.Small"
-                                  OnClick="@(() => ViewAngebot(context.Id))"
-                                  Title="Anzeigen" />
+                    <MudTooltip Text="Anzeigen">
+                        <MudIconButton Icon="@Icons.Material.Filled.Visibility"
+                                      Color="Color.Info" Size="Size.Small"
+                                      OnClick="@(() => ViewAngebot(context.Id))" />
+                    </MudTooltip>
                     @if (context.Status == AngebotStatus.Entwurf)
                     {
-                        <MudIconButton Icon="@Icons.Material.Filled.Edit"
-                                      Color="Color.Primary" Size="Size.Small"
-                                      OnClick="@(() => EditAngebot(context.Id))"
-                                      Title="Bearbeiten" />
-                        <MudIconButton Icon="@Icons.Material.Filled.Delete"
-                                      Color="Color.Error" Size="Size.Small"
-                                      OnClick="@(() => DeleteAngebot(context))"
-                                      Title="Löschen" />
+                        <MudTooltip Text="Bearbeiten">
+                            <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                          Color="Color.Primary" Size="Size.Small"
+                                          OnClick="@(() => EditAngebot(context.Id))" />
+                        </MudTooltip>
+                        <MudTooltip Text="Löschen">
+                            <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                          Color="Color.Error" Size="Size.Small"
+                                          OnClick="@(() => DeleteAngebot(context))" />
+                        </MudTooltip>
                     }
                 </MudTd>
             </RowTemplate>

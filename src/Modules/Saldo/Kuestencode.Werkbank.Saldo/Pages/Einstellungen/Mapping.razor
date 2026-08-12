@@ -101,27 +101,31 @@
                         <td style="padding: 4px 16px; text-align:center;">
                             @if (isEditing)
                             {
-                                <MudIconButton Icon="@Icons.Material.Filled.Check"
-                                               Color="Color.Success" Size="Size.Small"
-                                               Title="Speichern"
-                                               OnClick="@(() => SaveOverrideAsync(row.Kategorie))" />
-                                <MudIconButton Icon="@Icons.Material.Filled.Close"
-                                               Color="Color.Default" Size="Size.Small"
-                                               Title="Abbrechen"
-                                               OnClick="CancelEdit" />
+                                <MudTooltip Text="Speichern">
+                                    <MudIconButton Icon="@Icons.Material.Filled.Check"
+                                                   Color="Color.Success" Size="Size.Small"
+                                                   OnClick="@(() => SaveOverrideAsync(row.Kategorie))" />
+                                </MudTooltip>
+                                <MudTooltip Text="Abbrechen">
+                                    <MudIconButton Icon="@Icons.Material.Filled.Close"
+                                                   Color="Color.Default" Size="Size.Small"
+                                                   OnClick="CancelEdit" />
+                                </MudTooltip>
                             }
                             else
                             {
-                                <MudIconButton Icon="@Icons.Material.Filled.Edit"
-                                               Color="Color.Primary" Size="Size.Small"
-                                               Title="Konto ändern"
-                                               OnClick="@(() => StartEdit(row))" />
+                                <MudTooltip Text="Konto ändern">
+                                    <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                                   Color="Color.Primary" Size="Size.Small"
+                                                   OnClick="@(() => StartEdit(row))" />
+                                </MudTooltip>
                                 @if (row.IsOverride)
                                 {
-                                    <MudIconButton Icon="@Icons.Material.Filled.RestartAlt"
-                                                   Color="Color.Warning" Size="Size.Small"
-                                                   Title="Override zurücksetzen"
-                                                   OnClick="@(() => ResetOverrideAsync(row.Kategorie))" />
+                                    <MudTooltip Text="Override zurücksetzen">
+                                        <MudIconButton Icon="@Icons.Material.Filled.RestartAlt"
+                                                       Color="Color.Warning" Size="Size.Small"
+                                                       OnClick="@(() => ResetOverrideAsync(row.Kategorie))" />
+                                    </MudTooltip>
                                 }
                             }
                         </td>

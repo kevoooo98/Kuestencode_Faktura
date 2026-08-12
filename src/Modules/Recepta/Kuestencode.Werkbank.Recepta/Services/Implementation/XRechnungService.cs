@@ -182,7 +182,9 @@ public class XRechnungService : IXRechnungService
                     Description = line.Name,
                     Quantity = line.BilledQuantity,
                     UnitCode = line.UnitCode?.ToString(),
+#pragma warning disable CS0618 // ZUGFeRD-csharp 17.x: NetUnitPrice bleibt optional, wird erst ab v18 pflicht (keine Alternative verfügbar)
                     UnitPrice = line.NetUnitPrice ?? 0,
+#pragma warning restore CS0618
                     NetAmount = line.LineTotalAmount ?? 0,
                     TaxPercent = line.TaxPercent
                 });

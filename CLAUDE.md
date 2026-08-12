@@ -98,7 +98,40 @@ Dreistufige Priorität für MwSt:
 
 ## Docker / Entwicklungsumgebung
 
-- WSL Docker (kein Docker Desktop)
 - PostgreSQL-Volume: `./data/postgres` (bind mount)
-- Bei Permission-Problemen: `sudo chown -R 999:999 /mnt/c/Repos/Daddelkiste/Werkbank/data/postgres`
+- Bei Permission-Problemen: `sudo chown -R 999:999 /mnt/c/Repos/Prokas/Werkbank/data/postgres`
 - Alle Module haben `APPLY_MIGRATIONS=true` — Migrationen laufen automatisch beim Container-Start
+
+## Versionierung
+
+- Es muss die ./VERSION Datei angepasst werden. 
+- Entscheide selbst ob major/minor/patch
+- Wenn ein Modul verändert wurde MUSS ein = zwischen Modulname und Version
+- wenn ein Modul nicht angepasst wurde MUSS das Gleichheitszeichen entfernt werden
+
+## Build
+
+Nach jeder Programmieraufgabe ist die gesamte Projektmappe zu bauen. 
+Das Buildergebnis ist auszugeben.
+Bei Warnings ist der Schweregrad der Warning auszugeben und eine Analyse, wie diese Warning zu beheben wäre. 
+Bei Errors ist eine Analyse auszugeben, wie es zu diesem Fehler kommen konnte. Der Fehler ist DANACH zu beheben. 
+
+## Unittests
+
+Es ist eine Code Coverage von 80% zu erreichen. 
+Nach jeder Programmieraufgabe sind zu den geschriebenen Codezeilen, sofern sinnvoll, Unittests zu schreiben. 
+Nach jeder Programmieraufgabe sollen diese Unittests ausgeführt und die Ergebnisse zu analysieren sein. Etwaige Fehler gilt es zu analysieren, zu diskutieren und DANACH zu beheben.  
+
+## Zusammenfassung
+
+- nach Abschluss jeder Programmieraufgabe ist folgende Ausgabe zu leisten: 
+  - veränderte Module
+    - darin veränderte Klassen
+      - darin veränderte Funktionen
+    - aktuelle Version
+  - Clean Code Analyse
+  - Build Ergebnis
+    - Bei Warnungen eine kurze Analyse der Warnung mit Einschätzung, wie schwerwiegend dieser ist. 
+    - Bei Errors ist der Fehler auszugeben, eine Analyse auszugeben und der Fehler DANACH zu beheben.
+  - Testergebnisse
+    - Code Coverage

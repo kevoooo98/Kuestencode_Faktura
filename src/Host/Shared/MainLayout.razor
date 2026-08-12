@@ -35,9 +35,6 @@
     </MudAppBar>
     <MudDrawer @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="2">
         <NavMenu />
-        <MudText Typo="Typo.caption" Class="pa-3" Style="opacity:0.6;">
-            Host @_hostVersion
-        </MudText>
     </MudDrawer>
     <MudMainContent>
         <MudContainer MaxWidth="MaxWidth.Large" Class="my-4 pt-4">
@@ -45,6 +42,10 @@
         </MudContainer>
     </MudMainContent>
 </MudLayout>
+
+<MudText Typo="Typo.caption" Style="position:fixed; bottom:8px; left:8px; opacity:0.6; z-index:2000;">
+    Host @_hostVersion
+</MudText>
 
 @code {
     private bool _drawerOpen = true;

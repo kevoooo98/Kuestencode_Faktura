@@ -31,23 +31,27 @@ public class AusgabenServiceTests
             .ReturnsAsync(new SaldoSettings { Kontenrahmen = kontenrahmen });
     }
 
-    private static ReceptaDocumentDto CreateDoc(
-        string category, DateOnly invoiceDate, DateOnly? paidDate,
-        decimal net, decimal taxRate, decimal tax, string? supplierName = null, string? docNumber = null)
+    // Vollständig bezahlter Beleg (PaymentAmount == AmountGross => Ratio 1).
+    private static ReceptaPaymentDto CreatePayment(
+        string category, DateOnly invoiceDate, DateOnly paymentDate,
+        decimal net, decimal taxRate, decimal tax, string? supplierName = null, string? docNumber = null,
+        Guid? documentId = null)
     {
-        return new ReceptaDocumentDto
+        var gross = net + tax;
+        return new ReceptaPaymentDto
         {
-            Id = Guid.NewGuid(),
-            Category = category,
-            InvoiceDate = invoiceDate,
-            PaidDate = paidDate,
-            Status = "Paid",
-            SupplierName = supplierName ?? "Lieferant GmbH",
+            PaymentId = Guid.NewGuid(),
+            DocumentId = documentId ?? Guid.NewGuid(),
             DocumentNumber = docNumber ?? "BE-001",
+            SupplierName = supplierName ?? "Lieferant GmbH",
+            InvoiceDate = invoiceDate,
+            PaymentDate = paymentDate,
+            PaymentAmount = gross,
             AmountNet = net,
-            TaxRate = taxRate,
             AmountTax = tax,
-            AmountGross = net + tax
+            AmountGross = gross,
+            TaxRate = taxRate,
+            Category = category
         };
     }
 
@@ -59,10 +63,10 @@ public class AusgabenServiceTests
         SetupKontenrahmen();
         _mappingRepo.Setup(r => r.GetAllAsync("SKR03")).ReturnsAsync(new List<KategorieKontoMapping>());
         _kontoRepo.Setup(r => r.GetByKontenrahmenAsync("SKR03")).ReturnsAsync(new List<Konto>());
-        _receptaData.Setup(s => s.GetDocumentsAsync(Von, Bis))
-            .ReturnsAsync(new List<ReceptaDocumentDto>
+        _receptaData.Setup(s => s.GetPaymentsAsync(Von, Bis))
+            .ReturnsAsync(new List<ReceptaPaymentDto>
             {
-                CreateDoc("Büromaterial", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 5), 100m, 19m, 19m)
+                CreatePayment("Büromaterial", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 5), 100m, 19m, 19m)
             });
 
         var service = CreateService();
@@ -79,11 +83,11 @@ public class AusgabenServiceTests
         SetupKontenrahmen();
         _mappingRepo.Setup(r => r.GetAllAsync("SKR03")).ReturnsAsync(new List<KategorieKontoMapping>());
         _kontoRepo.Setup(r => r.GetByKontenrahmenAsync("SKR03")).ReturnsAsync(new List<Konto>());
-        _receptaData.Setup(s => s.GetDocumentsAsync(Von, Bis))
-            .ReturnsAsync(new List<ReceptaDocumentDto>
+        _receptaData.Setup(s => s.GetPaymentsAsync(Von, Bis))
+            .ReturnsAsync(new List<ReceptaPaymentDto>
             {
-                CreateDoc("Reise", new DateOnly(2026, 3, 1), new DateOnly(2026, 3, 10), 200m, 19m, 38m),
-                CreateDoc("Büromaterial", new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 5), 100m, 19m, 19m)
+                CreatePayment("Reise", new DateOnly(2026, 3, 1), new DateOnly(2026, 3, 10), 200m, 19m, 38m),
+                CreatePayment("Büromaterial", new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 5), 100m, 19m, 19m)
             });
 
         var service = CreateService();
@@ -107,10 +111,10 @@ public class AusgabenServiceTests
             {
                 new() { KontoNummer = "4930", KontoBezeichnung = "Bürobedarf", KontoTyp = KontoTyp.Ausgabe }
             });
-        _receptaData.Setup(s => s.GetDocumentsAsync(Von, Bis))
-            .ReturnsAsync(new List<ReceptaDocumentDto>
+        _receptaData.Setup(s => s.GetPaymentsAsync(Von, Bis))
+            .ReturnsAsync(new List<ReceptaPaymentDto>
             {
-                CreateDoc("Büromaterial", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 5), 100m, 19m, 19m)
+                CreatePayment("Büromaterial", new DateOnly(2026, 1, 5), new DateOnly(2026, 1, 5), 100m, 19m, 19m)
             });
 
         var service = CreateService();
@@ -126,10 +130,10 @@ public class AusgabenServiceTests
         SetupKontenrahmen("SKR03");
         _mappingRepo.Setup(r => r.GetAllAsync("SKR03")).ReturnsAsync(new List<KategorieKontoMapping>());
         _kontoRepo.Setup(r => r.GetByKontenrahmenAsync("SKR03")).ReturnsAsync(new List<Konto>());
-        _receptaData.Setup(s => s.GetDocumentsAsync(Von, Bis))
-            .ReturnsAsync(new List<ReceptaDocumentDto>
+        _receptaData.Setup(s => s.GetPaymentsAsync(Von, Bis))
+            .ReturnsAsync(new List<ReceptaPaymentDto>
             {
-                CreateDoc("UnbekanntKategorie", new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 1), 100m, 0m, 0m)
+                CreatePayment("UnbekanntKategorie", new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 1), 100m, 0m, 0m)
             });
 
         var service = CreateService();
@@ -144,10 +148,10 @@ public class AusgabenServiceTests
         SetupKontenrahmen("SKR04");
         _mappingRepo.Setup(r => r.GetAllAsync("SKR04")).ReturnsAsync(new List<KategorieKontoMapping>());
         _kontoRepo.Setup(r => r.GetByKontenrahmenAsync("SKR04")).ReturnsAsync(new List<Konto>());
-        _receptaData.Setup(s => s.GetDocumentsAsync(Von, Bis))
-            .ReturnsAsync(new List<ReceptaDocumentDto>
+        _receptaData.Setup(s => s.GetPaymentsAsync(Von, Bis))
+            .ReturnsAsync(new List<ReceptaPaymentDto>
             {
-                CreateDoc("UnbekanntKategorie", new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 1), 100m, 0m, 0m)
+                CreatePayment("UnbekanntKategorie", new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 1), 100m, 0m, 0m)
             });
 
         var service = CreateService();
@@ -157,21 +161,25 @@ public class AusgabenServiceTests
     }
 
     [Fact]
-    public async Task GetAusgaben_NutztInvoiceDateAlsZahlungsdatumWennPaidDateNull()
+    public async Task GetAusgaben_TeilzahlungErhaeltFortlaufendenSuffix()
     {
         SetupKontenrahmen();
         _mappingRepo.Setup(r => r.GetAllAsync("SKR03")).ReturnsAsync(new List<KategorieKontoMapping>());
         _kontoRepo.Setup(r => r.GetByKontenrahmenAsync("SKR03")).ReturnsAsync(new List<Konto>());
-        _receptaData.Setup(s => s.GetDocumentsAsync(Von, Bis))
-            .ReturnsAsync(new List<ReceptaDocumentDto>
+        var documentId = Guid.NewGuid();
+        _receptaData.Setup(s => s.GetPaymentsAsync(Von, Bis))
+            .ReturnsAsync(new List<ReceptaPaymentDto>
             {
-                CreateDoc("Büromaterial", new DateOnly(2026, 2, 20), null, 100m, 19m, 19m)
+                CreatePayment("Büromaterial", new DateOnly(2026, 2, 1), new DateOnly(2026, 2, 10), 50m, 19m, 9.5m, docNumber: "BE-001", documentId: documentId),
+                CreatePayment("Büromaterial", new DateOnly(2026, 2, 1), new DateOnly(2026, 3, 10), 50m, 19m, 9.5m, docNumber: "BE-001", documentId: documentId)
             });
 
         var service = CreateService();
         var result = await service.GetAusgabenAsync(Von, Bis);
 
-        result[0].ZahlungsDatum.Should().Be(new DateOnly(2026, 2, 20));
+        result.Should().HaveCount(2);
+        result[0].QuelleId.Should().Be("BE-001/1");
+        result[1].QuelleId.Should().Be("BE-001/2");
     }
 
     [Fact]
@@ -180,10 +188,10 @@ public class AusgabenServiceTests
         SetupKontenrahmen();
         _mappingRepo.Setup(r => r.GetAllAsync("SKR03")).ReturnsAsync(new List<KategorieKontoMapping>());
         _kontoRepo.Setup(r => r.GetByKontenrahmenAsync("SKR03")).ReturnsAsync(new List<Konto>());
-        _receptaData.Setup(s => s.GetDocumentsAsync(Von, Bis))
-            .ReturnsAsync(new List<ReceptaDocumentDto>
+        _receptaData.Setup(s => s.GetPaymentsAsync(Von, Bis))
+            .ReturnsAsync(new List<ReceptaPaymentDto>
             {
-                CreateDoc("Reise", new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 1),
+                CreatePayment("Reise", new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 1),
                     200m, 19m, 38m, supplierName: "Deutsche Bahn AG", docNumber: "RK-2026-001")
             });
 
@@ -201,10 +209,10 @@ public class AusgabenServiceTests
         _settingsRepo.Setup(r => r.GetAsync()).ReturnsAsync((SaldoSettings?)null);
         _mappingRepo.Setup(r => r.GetAllAsync("SKR03")).ReturnsAsync(new List<KategorieKontoMapping>());
         _kontoRepo.Setup(r => r.GetByKontenrahmenAsync("SKR03")).ReturnsAsync(new List<Konto>());
-        _receptaData.Setup(s => s.GetDocumentsAsync(Von, Bis)).ReturnsAsync(new List<ReceptaDocumentDto>());
+        _receptaData.Setup(s => s.GetPaymentsAsync(Von, Bis)).ReturnsAsync(new List<ReceptaPaymentDto>());
 
         var service = CreateService();
-        var result = await service.GetAusgabenAsync(Von, Bis);
+        await service.GetAusgabenAsync(Von, Bis);
 
         _mappingRepo.Verify(r => r.GetAllAsync("SKR03"), Times.Once);
     }
@@ -219,10 +227,10 @@ public class AusgabenServiceTests
         SetupKontenrahmen();
         _mappingRepo.Setup(r => r.GetAllAsync("SKR03")).ReturnsAsync(new List<KategorieKontoMapping>());
         _kontoRepo.Setup(r => r.GetByKontenrahmenAsync("SKR03")).ReturnsAsync(new List<Konto>());
-        _receptaData.Setup(s => s.GetDocumentsAsync(von2026, bis2026))
-            .ReturnsAsync(new List<ReceptaDocumentDto>
+        _receptaData.Setup(s => s.GetPaymentsAsync(von2026, bis2026))
+            .ReturnsAsync(new List<ReceptaPaymentDto>
             {
-                CreateDoc("Büromaterial", new DateOnly(2025, 12, 20), new DateOnly(2026, 1, 10), 100m, 19m, 19m)
+                CreatePayment("Büromaterial", new DateOnly(2025, 12, 20), new DateOnly(2026, 1, 10), 100m, 19m, 19m)
             });
 
         var service = CreateService();
@@ -244,10 +252,10 @@ public class AusgabenServiceTests
                 new() { ReceiptaKategorie = "Software", KontoNummer = "4970", Kontenrahmen = "SKR03" }
             });
         _kontoRepo.Setup(r => r.GetByKontenrahmenAsync("SKR03")).ReturnsAsync(new List<Konto>());
-        _receptaData.Setup(s => s.GetDocumentsAsync(Von, Bis))
-            .ReturnsAsync(new List<ReceptaDocumentDto>
+        _receptaData.Setup(s => s.GetPaymentsAsync(Von, Bis))
+            .ReturnsAsync(new List<ReceptaPaymentDto>
             {
-                CreateDoc("Software", new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 1), 50m, 19m, 9.5m)
+                CreatePayment("Software", new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 1), 50m, 19m, 9.5m)
             });
 
         var service = CreateService();
@@ -263,10 +271,10 @@ public class AusgabenServiceTests
         SetupKontenrahmen();
         _mappingRepo.Setup(r => r.GetAllAsync("SKR03")).ReturnsAsync(new List<KategorieKontoMapping>());
         _kontoRepo.Setup(r => r.GetByKontenrahmenAsync("SKR03")).ReturnsAsync(new List<Konto>());
-        _receptaData.Setup(s => s.GetDocumentsAsync(Von, Bis))
-            .ReturnsAsync(new List<ReceptaDocumentDto>
+        _receptaData.Setup(s => s.GetPaymentsAsync(Von, Bis))
+            .ReturnsAsync(new List<ReceptaPaymentDto>
             {
-                CreateDoc("Reise", new DateOnly(2026, 3, 1), new DateOnly(2026, 3, 25), 200m, 19m, 38m)
+                CreatePayment("Reise", new DateOnly(2026, 3, 1), new DateOnly(2026, 3, 25), 200m, 19m, 38m)
             });
 
         var service = CreateService();
@@ -278,17 +286,14 @@ public class AusgabenServiceTests
 
     // ─── GetSummeAsync ────────────────────────────────────────────────────────
 
-    // ─── GetSummeAsync ────────────────────────────────────────────────────────
-
     [Fact]
     public async Task GetSumme_SummiertAmountNet()
     {
-        SetupKontenrahmen();
-        _receptaData.Setup(s => s.GetDocumentsAsync(Von, Bis))
-            .ReturnsAsync(new List<ReceptaDocumentDto>
+        _receptaData.Setup(s => s.GetPaymentsAsync(Von, Bis))
+            .ReturnsAsync(new List<ReceptaPaymentDto>
             {
-                CreateDoc("Büro", new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 1), 300m, 19m, 57m),
-                CreateDoc("Reise", new DateOnly(2026, 2, 1), new DateOnly(2026, 2, 1), 150m, 19m, 28.5m)
+                CreatePayment("Büro", new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 1), 300m, 19m, 57m),
+                CreatePayment("Reise", new DateOnly(2026, 2, 1), new DateOnly(2026, 2, 1), 150m, 19m, 28.5m)
             });
 
         var service = CreateService();
@@ -300,8 +305,7 @@ public class AusgabenServiceTests
     [Fact]
     public async Task GetSumme_GibtNullBeiLeeremErgebnis()
     {
-        SetupKontenrahmen();
-        _receptaData.Setup(s => s.GetDocumentsAsync(Von, Bis)).ReturnsAsync(new List<ReceptaDocumentDto>());
+        _receptaData.Setup(s => s.GetPaymentsAsync(Von, Bis)).ReturnsAsync(new List<ReceptaPaymentDto>());
 
         var service = CreateService();
         var result = await service.GetSummeAsync(Von, Bis);
@@ -314,13 +318,12 @@ public class AusgabenServiceTests
     [Fact]
     public async Task GetNachKategorie_GruppiertKorrektNachKategorie()
     {
-        SetupKontenrahmen();
-        _receptaData.Setup(s => s.GetDocumentsAsync(Von, Bis))
-            .ReturnsAsync(new List<ReceptaDocumentDto>
+        _receptaData.Setup(s => s.GetPaymentsAsync(Von, Bis))
+            .ReturnsAsync(new List<ReceptaPaymentDto>
             {
-                CreateDoc("Büromaterial", new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 1), 100m, 19m, 19m),
-                CreateDoc("Büromaterial", new DateOnly(2026, 2, 1), new DateOnly(2026, 2, 1), 200m, 19m, 38m),
-                CreateDoc("Reise",        new DateOnly(2026, 3, 1), new DateOnly(2026, 3, 1), 500m, 19m, 95m)
+                CreatePayment("Büromaterial", new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 1), 100m, 19m, 19m),
+                CreatePayment("Büromaterial", new DateOnly(2026, 2, 1), new DateOnly(2026, 2, 1), 200m, 19m, 38m),
+                CreatePayment("Reise",        new DateOnly(2026, 3, 1), new DateOnly(2026, 3, 1), 500m, 19m, 95m)
             });
 
         var service = CreateService();
@@ -334,14 +337,13 @@ public class AusgabenServiceTests
     public async Task GetNachKategorie_SummeGleichGetSumme()
     {
         // Aggregationskonsistenz: Summe aller Kategorien muss GetSummeAsync entsprechen
-        SetupKontenrahmen();
-        var docs = new List<ReceptaDocumentDto>
+        var payments = new List<ReceptaPaymentDto>
         {
-            CreateDoc("Büromaterial", new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 1), 100m, 19m, 19m),
-            CreateDoc("Reise",        new DateOnly(2026, 2, 1), new DateOnly(2026, 2, 1), 250m, 19m, 47.5m),
-            CreateDoc("Software",     new DateOnly(2026, 3, 1), new DateOnly(2026, 3, 1),  80m, 19m, 15.2m)
+            CreatePayment("Büromaterial", new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 1), 100m, 19m, 19m),
+            CreatePayment("Reise",        new DateOnly(2026, 2, 1), new DateOnly(2026, 2, 1), 250m, 19m, 47.5m),
+            CreatePayment("Software",     new DateOnly(2026, 3, 1), new DateOnly(2026, 3, 1),  80m, 19m, 15.2m)
         };
-        _receptaData.Setup(s => s.GetDocumentsAsync(Von, Bis)).ReturnsAsync(docs);
+        _receptaData.Setup(s => s.GetPaymentsAsync(Von, Bis)).ReturnsAsync(payments);
 
         var service = CreateService();
         var summe = await service.GetSummeAsync(Von, Bis);

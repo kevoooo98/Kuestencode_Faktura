@@ -31,26 +31,27 @@ public class EinnahmenServiceTests
             .ReturnsAsync(new SaldoSettings { Kontenrahmen = kontenrahmen });
     }
 
-    private static InvoiceDto CreateInvoice(
-        int id, string number, string customer,
-        DateTime invoiceDate, DateTime? paidDate,
+    // Vollständig bezahlte Rechnung (PaymentAmount == InvoiceTotalGross => Ratio 1) mit einer Position.
+    private static InvoiceEuerPaymentDto CreatePayment(
+        int paymentId, int invoiceId, string invoiceNumber, string? customer,
+        DateTime invoiceDate, DateOnly paymentDate,
         decimal net, decimal vatRate, decimal vat)
     {
-        return new InvoiceDto
+        var gross = net + vat;
+        return new InvoiceEuerPaymentDto
         {
-            Id = id,
-            InvoiceNumber = number,
-            CustomerName = customer,
+            PaymentId = paymentId,
+            InvoiceId = invoiceId,
+            InvoiceNumber = invoiceNumber,
             InvoiceDate = invoiceDate,
-            PaidDate = paidDate,
-            Status = "Paid",
+            PaymentDate = paymentDate,
+            PaymentAmount = gross,
+            InvoiceTotalGross = gross,
+            CustomerName = customer,
             Items = new List<InvoiceItemDto>
             {
-                new() { VatRate = vatRate, TotalNet = net, TotalVat = vat, TotalGross = net + vat }
-            },
-            TotalNetAfterDiscount = net,
-            TotalVat = vat,
-            TotalGross = net + vat
+                new() { VatRate = vatRate, TotalNet = net, TotalVat = vat, TotalGross = gross }
+            }
         };
     }
 
@@ -61,10 +62,10 @@ public class EinnahmenServiceTests
     {
         SetupKontenrahmen();
         _kontoRepo.Setup(r => r.GetByKontenrahmenAsync("SKR03")).ReturnsAsync(new List<Konto>());
-        _fakturaClient.Setup(c => c.GetAllInvoicesAsync(It.IsAny<InvoiceFilterDto>()))
-            .ReturnsAsync(new List<InvoiceDto>
+        _fakturaClient.Setup(c => c.GetEuerPaymentsAsync(Von, Bis))
+            .ReturnsAsync(new List<InvoiceEuerPaymentDto>
             {
-                CreateInvoice(1, "RE-001", "Kunde A", new DateTime(2026, 1, 10), new DateTime(2026, 1, 15), 1000m, 19m, 190m)
+                CreatePayment(1, 1, "RE-001", "Kunde A", new DateTime(2026, 1, 10), new DateOnly(2026, 1, 15), 1000m, 19m, 190m)
             });
 
         var service = CreateService();
@@ -80,11 +81,11 @@ public class EinnahmenServiceTests
     {
         SetupKontenrahmen();
         _kontoRepo.Setup(r => r.GetByKontenrahmenAsync("SKR03")).ReturnsAsync(new List<Konto>());
-        _fakturaClient.Setup(c => c.GetAllInvoicesAsync(It.IsAny<InvoiceFilterDto>()))
-            .ReturnsAsync(new List<InvoiceDto>
+        _fakturaClient.Setup(c => c.GetEuerPaymentsAsync(Von, Bis))
+            .ReturnsAsync(new List<InvoiceEuerPaymentDto>
             {
-                CreateInvoice(1, "RE-002", "Kunde B", new DateTime(2026, 3, 1), new DateTime(2026, 3, 15), 500m, 19m, 95m),
-                CreateInvoice(2, "RE-001", "Kunde A", new DateTime(2026, 1, 1), new DateTime(2026, 1, 5), 1000m, 19m, 190m)
+                CreatePayment(1, 1, "RE-002", "Kunde B", new DateTime(2026, 3, 1), new DateOnly(2026, 3, 15), 500m, 19m, 95m),
+                CreatePayment(2, 2, "RE-001", "Kunde A", new DateTime(2026, 1, 1), new DateOnly(2026, 1, 5), 1000m, 19m, 190m)
             });
 
         var service = CreateService();
@@ -103,10 +104,10 @@ public class EinnahmenServiceTests
             {
                 new() { KontoNummer = "8410", KontoBezeichnung = "Erlöse 19% (custom)", KontoTyp = KontoTyp.Einnahme, UstSatz = 19 }
             });
-        _fakturaClient.Setup(c => c.GetAllInvoicesAsync(It.IsAny<InvoiceFilterDto>()))
-            .ReturnsAsync(new List<InvoiceDto>
+        _fakturaClient.Setup(c => c.GetEuerPaymentsAsync(Von, Bis))
+            .ReturnsAsync(new List<InvoiceEuerPaymentDto>
             {
-                CreateInvoice(1, "RE-001", "Kunde", new DateTime(2026, 1, 1), new DateTime(2026, 1, 1), 1000m, 19m, 190m)
+                CreatePayment(1, 1, "RE-001", "Kunde", new DateTime(2026, 1, 1), new DateOnly(2026, 1, 1), 1000m, 19m, 190m)
             });
 
         var service = CreateService();
@@ -121,10 +122,10 @@ public class EinnahmenServiceTests
     {
         SetupKontenrahmen();
         _kontoRepo.Setup(r => r.GetByKontenrahmenAsync("SKR03")).ReturnsAsync(new List<Konto>());
-        _fakturaClient.Setup(c => c.GetAllInvoicesAsync(It.IsAny<InvoiceFilterDto>()))
-            .ReturnsAsync(new List<InvoiceDto>
+        _fakturaClient.Setup(c => c.GetEuerPaymentsAsync(Von, Bis))
+            .ReturnsAsync(new List<InvoiceEuerPaymentDto>
             {
-                CreateInvoice(1, "RE-001", "Kunde", new DateTime(2026, 1, 1), new DateTime(2026, 1, 1), 1000m, 19m, 190m)
+                CreatePayment(1, 1, "RE-001", "Kunde", new DateTime(2026, 1, 1), new DateOnly(2026, 1, 1), 1000m, 19m, 190m)
             });
 
         var service = CreateService();
@@ -138,13 +139,14 @@ public class EinnahmenServiceTests
     {
         SetupKontenrahmen();
         _kontoRepo.Setup(r => r.GetByKontenrahmenAsync("SKR03")).ReturnsAsync(new List<Konto>());
-        _fakturaClient.Setup(c => c.GetAllInvoicesAsync(It.IsAny<InvoiceFilterDto>()))
-            .ReturnsAsync(new List<InvoiceDto>
+        _fakturaClient.Setup(c => c.GetEuerPaymentsAsync(Von, Bis))
+            .ReturnsAsync(new List<InvoiceEuerPaymentDto>
             {
                 new()
                 {
-                    Id = 1, InvoiceNumber = "RE-001", InvoiceDate = new DateTime(2026, 1, 1),
-                    PaidDate = new DateTime(2026, 1, 1),
+                    PaymentId = 1, InvoiceId = 1, InvoiceNumber = "RE-001",
+                    InvoiceDate = new DateTime(2026, 1, 1), PaymentDate = new DateOnly(2026, 1, 1),
+                    PaymentAmount = 1725m, InvoiceTotalGross = 1725m,
                     Items = new List<InvoiceItemDto>
                     {
                         new() { VatRate = 19m, TotalNet = 1000m, TotalVat = 190m, TotalGross = 1190m },
@@ -160,20 +162,35 @@ public class EinnahmenServiceTests
     }
 
     [Fact]
-    public async Task GetEinnahmen_NutztInvoiceDateAlsZahlungsdatumWennPaidDateNull()
+    public async Task GetEinnahmen_TeilzahlungErhaeltFortlaufendenSuffix()
     {
         SetupKontenrahmen();
         _kontoRepo.Setup(r => r.GetByKontenrahmenAsync("SKR03")).ReturnsAsync(new List<Konto>());
-        _fakturaClient.Setup(c => c.GetAllInvoicesAsync(It.IsAny<InvoiceFilterDto>()))
-            .ReturnsAsync(new List<InvoiceDto>
+        _fakturaClient.Setup(c => c.GetEuerPaymentsAsync(Von, Bis))
+            .ReturnsAsync(new List<InvoiceEuerPaymentDto>
             {
-                CreateInvoice(1, "RE-001", "Kunde", new DateTime(2026, 2, 15), null, 1000m, 19m, 190m)
+                new()
+                {
+                    PaymentId = 1, InvoiceId = 1, InvoiceNumber = "RE-001",
+                    InvoiceDate = new DateTime(2026, 1, 1), PaymentDate = new DateOnly(2026, 1, 10),
+                    PaymentAmount = 500m, InvoiceTotalGross = 1000m,
+                    Items = new List<InvoiceItemDto> { new() { VatRate = 19m, TotalNet = 420.17m, TotalVat = 79.83m, TotalGross = 500m } }
+                },
+                new()
+                {
+                    PaymentId = 2, InvoiceId = 1, InvoiceNumber = "RE-001",
+                    InvoiceDate = new DateTime(2026, 1, 1), PaymentDate = new DateOnly(2026, 2, 10),
+                    PaymentAmount = 500m, InvoiceTotalGross = 1000m,
+                    Items = new List<InvoiceItemDto> { new() { VatRate = 19m, TotalNet = 420.17m, TotalVat = 79.83m, TotalGross = 500m } }
+                }
             });
 
         var service = CreateService();
         var result = await service.GetEinnahmenAsync(Von, Bis);
 
-        result[0].ZahlungsDatum.Should().Be(new DateOnly(2026, 2, 15));
+        result.Should().HaveCount(2);
+        result[0].QuelleId.Should().Be("RE-001/1");
+        result[1].QuelleId.Should().Be("RE-001/2");
     }
 
     [Fact]
@@ -181,7 +198,7 @@ public class EinnahmenServiceTests
     {
         SetupKontenrahmen();
         _kontoRepo.Setup(r => r.GetByKontenrahmenAsync("SKR03")).ReturnsAsync(new List<Konto>());
-        _fakturaClient.Setup(c => c.GetAllInvoicesAsync(It.IsAny<InvoiceFilterDto>()))
+        _fakturaClient.Setup(c => c.GetEuerPaymentsAsync(Von, Bis))
             .ThrowsAsync(new HttpRequestException("Verbindungsfehler"));
 
         var service = CreateService();
@@ -195,10 +212,10 @@ public class EinnahmenServiceTests
     {
         SetupKontenrahmen();
         _kontoRepo.Setup(r => r.GetByKontenrahmenAsync("SKR03")).ReturnsAsync(new List<Konto>());
-        _fakturaClient.Setup(c => c.GetAllInvoicesAsync(It.IsAny<InvoiceFilterDto>()))
-            .ReturnsAsync(new List<InvoiceDto>
+        _fakturaClient.Setup(c => c.GetEuerPaymentsAsync(Von, Bis))
+            .ReturnsAsync(new List<InvoiceEuerPaymentDto>
             {
-                CreateInvoice(1, "RE-001", "Musterfirma GmbH", new DateTime(2026, 1, 1), new DateTime(2026, 1, 1), 1000m, 19m, 190m)
+                CreatePayment(1, 1, "RE-001", "Musterfirma GmbH", new DateTime(2026, 1, 1), new DateOnly(2026, 1, 1), 1000m, 19m, 190m)
             });
 
         var service = CreateService();
@@ -209,32 +226,30 @@ public class EinnahmenServiceTests
     }
 
     [Fact]
-    public async Task GetEinnahmen_FilterNachStatusPaidWirdAnFakturaUebergeben()
+    public async Task GetEinnahmen_UebergibtZeitraumAnFakturaClient()
     {
         SetupKontenrahmen();
         _kontoRepo.Setup(r => r.GetByKontenrahmenAsync("SKR03")).ReturnsAsync(new List<Konto>());
-        _fakturaClient.Setup(c => c.GetAllInvoicesAsync(It.Is<InvoiceFilterDto>(f =>
-            f.Status == "Paid" && f.PaidFrom != null && f.PaidTo != null)))
-            .ReturnsAsync(new List<InvoiceDto>());
+        _fakturaClient.Setup(c => c.GetEuerPaymentsAsync(Von, Bis))
+            .ReturnsAsync(new List<InvoiceEuerPaymentDto>());
 
         var service = CreateService();
         await service.GetEinnahmenAsync(Von, Bis);
 
-        _fakturaClient.Verify(c => c.GetAllInvoicesAsync(It.Is<InvoiceFilterDto>(f =>
-            f.Status == "Paid" && f.PaidFrom != null && f.PaidTo != null)), Times.Once);
+        _fakturaClient.Verify(c => c.GetEuerPaymentsAsync(Von, Bis), Times.Once);
     }
 
     // ─── GetSummeAsync ────────────────────────────────────────────────────────
 
     [Fact]
-    public async Task GetSumme_SummiertTotalNetAfterDiscount()
+    public async Task GetSumme_SummiertNettoBetraege()
     {
         SetupKontenrahmen();
-        _fakturaClient.Setup(c => c.GetAllInvoicesAsync(It.IsAny<InvoiceFilterDto>()))
-            .ReturnsAsync(new List<InvoiceDto>
+        _fakturaClient.Setup(c => c.GetEuerPaymentsAsync(Von, Bis))
+            .ReturnsAsync(new List<InvoiceEuerPaymentDto>
             {
-                new() { TotalNetAfterDiscount = 1000m, Items = new(), PaidDate = new DateTime(2026, 1, 1) },
-                new() { TotalNetAfterDiscount = 500m,  Items = new(), PaidDate = new DateTime(2026, 2, 1) }
+                CreatePayment(1, 1, "RE-001", "Kunde A", new DateTime(2026, 1, 1), new DateOnly(2026, 1, 1), 1000m, 19m, 190m),
+                CreatePayment(2, 2, "RE-002", "Kunde B", new DateTime(2026, 2, 1), new DateOnly(2026, 2, 1), 500m, 19m, 95m)
             });
 
         var service = CreateService();
@@ -247,8 +262,8 @@ public class EinnahmenServiceTests
     public async Task GetSumme_GibtNullBeiLeeremErgebnis()
     {
         SetupKontenrahmen();
-        _fakturaClient.Setup(c => c.GetAllInvoicesAsync(It.IsAny<InvoiceFilterDto>()))
-            .ReturnsAsync(new List<InvoiceDto>());
+        _fakturaClient.Setup(c => c.GetEuerPaymentsAsync(Von, Bis))
+            .ReturnsAsync(new List<InvoiceEuerPaymentDto>());
 
         var service = CreateService();
         var result = await service.GetSummeAsync(Von, Bis);
@@ -262,12 +277,14 @@ public class EinnahmenServiceTests
     public async Task GetNachUstSatz_GruppiertKorrektNachUstSatz()
     {
         SetupKontenrahmen();
-        _fakturaClient.Setup(c => c.GetAllInvoicesAsync(It.IsAny<InvoiceFilterDto>()))
-            .ReturnsAsync(new List<InvoiceDto>
+        _fakturaClient.Setup(c => c.GetEuerPaymentsAsync(Von, Bis))
+            .ReturnsAsync(new List<InvoiceEuerPaymentDto>
             {
                 new()
                 {
-                    PaidDate = new DateTime(2026, 1, 1),
+                    PaymentId = 1, InvoiceId = 1, InvoiceNumber = "RE-001",
+                    InvoiceDate = new DateTime(2026, 1, 1), PaymentDate = new DateOnly(2026, 1, 1),
+                    PaymentAmount = 1999m, InvoiceTotalGross = 1999m,
                     Items = new List<InvoiceItemDto>
                     {
                         new() { VatRate = 19m, TotalNet = 1000m, TotalVat = 190m, TotalGross = 1190m },

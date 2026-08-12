@@ -31,7 +31,7 @@ else
 {
     if (IsIconUrl(Item.Icon))
     {
-        <MudNavLink Href="@Item.Href">
+        <MudNavLink Class="@GetActiveClass(Item)" OnClick="@(() => NavigateTo(Item.Href))">
             <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
                 <MudImage Src="@Item.Icon" Alt="@Item.Label" Width="24" Height="24" />
                 <span class="@(IsOverviewItem(Item) ? "nav-overview-link" : "")">@Item.Label</span>
@@ -40,7 +40,7 @@ else
     }
     else
     {
-        <MudNavLink Href="@Item.Href">
+        <MudNavLink Class="@GetActiveClass(Item)" OnClick="@(() => NavigateTo(Item.Href))">
             <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
                 @if (HasIconName(Item.Icon))
                 {
@@ -135,5 +135,17 @@ else
         }
 
         return currentUri.Contains(href, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private string GetActiveClass(NavItemDto item)
+    {
+        var currentUri = CurrentUri ?? NavigationManager.Uri;
+        return IsMatch(currentUri, item.Href) ? "active" : string.Empty;
+    }
+
+    private void NavigateTo(string href)
+    {
+        // Kein Href-Attribut auf MudNavLink, damit Browser (z.B. Chrome) unten links keine Ziel-URL-Vorschau anzeigen
+        NavigationManager.NavigateTo(href, forceLoad: true);
     }
 }

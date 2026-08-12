@@ -38,6 +38,8 @@ public sealed class RapportWebApplicationFactory : WebApplicationFactory<Program
             services.RemoveAll<DbContextOptions<RapportDbContext>>();
             services.RemoveAll<IDbContextOptionsConfiguration<RapportDbContext>>();
             services.RemoveAll<DbContextOptions>();
+            services.RemoveAll<IDbContextFactory<RapportDbContext>>();
+            services.RemoveAll<RapportDbContext>();
 
             var npgsqlDescriptors = services
                 .Where(d => d.ImplementationType?.Assembly.GetName().Name?.Contains("Npgsql") == true
@@ -48,13 +50,18 @@ public sealed class RapportWebApplicationFactory : WebApplicationFactory<Program
                 services.Remove(descriptor);
             }
 
-            services.AddDbContext<RapportDbContext>(options => options.UseInMemoryDatabase(_dbName));
+            // Muss dieselbe Factory-Registrierungsform wie RapportModule.AddRapportModule() spiegeln
+            // (AddDbContextFactory + abgeleiteter AddScoped), sonst validiert die Singleton-Factory
+            // beim Build gegen die hier neu registrierten (scoped) DbContextOptions.
+            services.AddDbContextFactory<RapportDbContext>(options => options.UseInMemoryDatabase(_dbName));
+            services.AddScoped(sp => sp.GetRequiredService<IDbContextFactory<RapportDbContext>>().CreateDbContext());
 
             services.RemoveAll<IHostedService>();
 
             services.RemoveAll<ICustomerService>();
             services.RemoveAll<IProjectService>();
             services.RemoveAll<ICompanyService>();
+            services.RemoveAll<IUserContextService>();
 
             services.AddSingleton<TestDoubles.TestCustomerService>();
             services.AddSingleton<ICustomerService>(sp => sp.GetRequiredService<TestDoubles.TestCustomerService>());
@@ -63,6 +70,8 @@ public sealed class RapportWebApplicationFactory : WebApplicationFactory<Program
             services.AddSingleton<IProjectService>(sp => sp.GetRequiredService<TestDoubles.TestProjectService>());
 
             services.AddSingleton<ICompanyService, TestDoubles.TestCompanyService>();
+
+            services.AddSingleton<IUserContextService, TestDoubles.TestUserContextService>();
         });
     }
 }

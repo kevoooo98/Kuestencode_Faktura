@@ -527,7 +527,7 @@
                             @* Panel 1: Ausgaben (Recepta) *@
                             @if (_receptaAvailable)
                             {
-                                <MudExpansionPanel Text="@($"Belege – Ausgaben ({_projectExpenses?.DocumentCount ?? 0})")" IsInitiallyExpanded="true">
+                                <MudExpansionPanel Text="@($"Belege – Ausgaben ({_projectExpenses?.DocumentCount ?? 0})")" Expanded="true">
                                     @if (_projectExpenses == null || _projectExpenses.Documents.Count == 0)
                                     {
                                         <MudText Typo="Typo.body1" Color="Color.Secondary" Class="pa-4" Align="Align.Center">
@@ -601,7 +601,7 @@
                             @* Panel 2: Ausgang – Rechnungen (Faktura) *@
                             @if (_fakturaAvailable)
                             {
-                                <MudExpansionPanel Text="@($"Ausgang – Rechnungen ({_projectInvoices?.InvoiceCount ?? 0})")" IsInitiallyExpanded="true">
+                                <MudExpansionPanel Text="@($"Ausgang – Rechnungen ({_projectInvoices?.InvoiceCount ?? 0})")" Expanded="true">
                                     @if (_projectInvoices == null || _projectInvoices.Invoices.Count == 0)
                                     {
                                         <MudText Typo="Typo.body1" Color="Color.Secondary" Class="pa-4" Align="Align.Center">
@@ -780,7 +780,7 @@
                     _projectInvoices = await HostApiClient.GetProjectInvoicesAsync(_project.ExternalId.Value);
                 }
 
-                if (_rapportAvailable || _receptaAvailable)
+                if ((_rapportAvailable || _receptaAvailable) && _project != null)
                 {
                     _projektAbrechnung = await StundensatzService.GetProjektAbrechnungAsync(_project.Id);
                 }
