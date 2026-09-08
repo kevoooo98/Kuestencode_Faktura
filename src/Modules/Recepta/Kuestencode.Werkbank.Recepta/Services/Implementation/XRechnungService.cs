@@ -143,8 +143,19 @@ public class XRechnungService : IXRechnungService
             data.SupplierEmail = desc.SellerContact.EmailAddress;
         }
 
+        // Rechnungsempfänger (Buyer)
+        if (desc.Buyer != null)
+        {
+            data.BuyerName = desc.Buyer.Name;
+            data.BuyerAddress = desc.Buyer.Street;
+            data.BuyerPostalCode = desc.Buyer.Postcode;
+            data.BuyerCity = desc.Buyer.City;
+            data.BuyerCountry = desc.Buyer.Country?.ToString();
+        }
+
         // Rechnungskopf
         data.InvoiceNumber = desc.InvoiceNo;
+        data.Currency = desc.Currency.ToString();
 
         if (desc.InvoiceDate.HasValue)
         {
@@ -161,15 +172,23 @@ public class XRechnungService : IXRechnungService
             }
         }
 
+        // Leistungsdatum (Zeitpunkt der Lieferung/Leistung, § 14 Abs. 4 Nr. 6 UStG)
+        if (desc.ActualDeliveryDate.HasValue)
+        {
+            data.DeliveryDate = DateOnly.FromDateTime(desc.ActualDeliveryDate.Value);
+        }
+
         // Beträge
         data.AmountNet = desc.LineTotalAmount ?? desc.TaxBasisAmount;
         data.AmountGross = desc.GrandTotalAmount ?? desc.DuePayableAmount;
         data.AmountTax = desc.TaxTotalAmount;
 
-        // Steuersatz aus erstem Tax-Eintrag
+        // Steuersatz aus erstem Tax-Eintrag, ggf. Hinweis auf Steuerbefreiung (§ 14 Abs. 4 Nr. 8 UStG)
         if (desc.Taxes?.Count > 0)
         {
-            data.TaxRate = desc.Taxes.First().Percent;
+            var firstTax = desc.Taxes.First();
+            data.TaxRate = firstTax.Percent;
+            data.TaxExemptionReason = firstTax.ExemptionReason;
         }
 
         // Positionen

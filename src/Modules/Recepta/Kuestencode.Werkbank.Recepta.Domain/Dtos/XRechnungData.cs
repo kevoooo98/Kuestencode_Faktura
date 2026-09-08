@@ -16,16 +16,26 @@ public class XRechnungData
     public string? SupplierBic { get; set; }
     public string? SupplierEmail { get; set; }
 
+    // Rechnungsempfänger (Buyer)
+    public string? BuyerName { get; set; }
+    public string? BuyerAddress { get; set; }
+    public string? BuyerPostalCode { get; set; }
+    public string? BuyerCity { get; set; }
+    public string? BuyerCountry { get; set; }
+
     // Rechnungsdaten
     public string? InvoiceNumber { get; set; }
     public DateOnly? InvoiceDate { get; set; }
     public DateOnly? DueDate { get; set; }
+    public DateOnly? DeliveryDate { get; set; }
+    public string? Currency { get; set; }
 
     // Beträge
     public decimal? AmountNet { get; set; }
     public decimal? TaxRate { get; set; }
     public decimal? AmountTax { get; set; }
     public decimal? AmountGross { get; set; }
+    public string? TaxExemptionReason { get; set; }
 
     // Positionsdaten (nur zur Anzeige, nicht persistiert)
     public List<XRechnungLineItem> LineItems { get; set; } = new();

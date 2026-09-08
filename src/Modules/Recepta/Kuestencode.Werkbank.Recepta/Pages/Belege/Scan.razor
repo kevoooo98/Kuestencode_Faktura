@@ -90,6 +90,70 @@
                             <strong>XRechnung/ZUGFeRD erkannt</strong> — Alle Rechnungsdaten wurden strukturiert ausgelesen.
                         </MudAlert>
 
+                        var xData = _scanResult.XRechnungData;
+                        @if (xData != null)
+                        {
+                            <MudText Typo="Typo.subtitle2" Class="mb-2">Pflichtangaben</MudText>
+                            <MudSimpleTable Dense="true" Bordered="true" Style="font-size: 0.85rem;" Class="mb-4">
+                                <tbody>
+                                    <tr>
+                                        <td style="font-weight: 500; width: 40%;">Rechnungssteller</td>
+                                        <td>@FormatParty(xData.SupplierName, xData.SupplierAddress, xData.SupplierPostalCode, xData.SupplierCity, xData.SupplierCountry)</td>
+                                    </tr>
+                                    @if (!string.IsNullOrWhiteSpace(xData.SupplierTaxId))
+                                    {
+                                        <tr>
+                                            <td style="font-weight: 500;">USt-IdNr. / Steuernummer</td>
+                                            <td>@xData.SupplierTaxId</td>
+                                        </tr>
+                                    }
+                                    <tr>
+                                        <td style="font-weight: 500;">Rechnungsempfänger</td>
+                                        <td>@FormatParty(xData.BuyerName, xData.BuyerAddress, xData.BuyerPostalCode, xData.BuyerCity, xData.BuyerCountry)</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="font-weight: 500;">Rechnungsnummer</td>
+                                        <td>@(xData.InvoiceNumber ?? "—")</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="font-weight: 500;">Rechnungsdatum</td>
+                                        <td>@(xData.InvoiceDate?.ToString("dd.MM.yyyy") ?? "—")</td>
+                                    </tr>
+                                    @if (xData.DeliveryDate.HasValue)
+                                    {
+                                        <tr>
+                                            <td style="font-weight: 500;">Liefer-/Leistungsdatum</td>
+                                            <td>@xData.DeliveryDate.Value.ToString("dd.MM.yyyy")</td>
+                                        </tr>
+                                    }
+                                    @if (xData.DueDate.HasValue)
+                                    {
+                                        <tr>
+                                            <td style="font-weight: 500;">Fälligkeitsdatum</td>
+                                            <td>@xData.DueDate.Value.ToString("dd.MM.yyyy")</td>
+                                        </tr>
+                                    }
+                                    <tr>
+                                        <td style="font-weight: 500;">Steuersatz / Steuerbetrag</td>
+                                        <td>
+                                            @if (xData.TaxRate is 0 or null && !string.IsNullOrWhiteSpace(xData.TaxExemptionReason))
+                                            {
+                                                @xData.TaxExemptionReason
+                                            }
+                                            else
+                                            {
+                                                @($"{xData.TaxRate?.ToString("N0", _culture) ?? "—"} % / {xData.AmountTax?.ToString("N2", _culture) ?? "—"} €")
+                                            }
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td style="font-weight: 500;">Gesamtbetrag</td>
+                                        <td>@(xData.AmountGross?.ToString("N2", _culture) ?? "—") @(xData.Currency ?? "EUR")</td>
+                                    </tr>
+                                </tbody>
+                            </MudSimpleTable>
+                        }
+
                         @if (_scanResult.XRechnungData?.LineItems.Count > 0)
                         {
                             <MudText Typo="Typo.subtitle2" Class="mb-2">Rechnungspositionen</MudText>
@@ -531,6 +595,16 @@
     private List<AllocationRowModel> _allocationRows = new();
     private decimal _allocatedTotal => _allocationRows.Sum(r => r.AllocatedGross);
     private bool _isOverAllocated => Math.Round(Math.Abs(_allocatedTotal), 2) > Math.Round(Math.Abs(_model.AmountGross), 2);
+
+    private static string FormatParty(string? name, string? street, string? postalCode, string? city, string? country)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return "—";
+
+        var addressLine = string.Join(" ", new[] { postalCode, city }.Where(s => !string.IsNullOrWhiteSpace(s)));
+        var parts = new[] { street, addressLine, country }.Where(s => !string.IsNullOrWhiteSpace(s));
+
+        return parts.Any() ? $"{name}, {string.Join(", ", parts)}" : name;
+    }
 
     private string OcrClass(string field) =>
         _ocrDetected.Contains(field)
