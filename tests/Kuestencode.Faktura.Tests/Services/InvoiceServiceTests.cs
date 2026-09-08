@@ -145,6 +145,60 @@ public class InvoiceServiceTests
             .WithMessage($"*{inv.InvoiceNumber}*");
     }
 
+    // ─── CreateCreditNoteFromInvoiceAsync ─────────────────────────────────────
+
+    [Fact]
+    public async Task CreateCreditNote_VorhandeneRechnung_NegiertPositionspreiseUndUebernimmtKundeUndProjekt()
+    {
+        var source = MakeInvoice(1, InvoiceStatus.Sent);
+        source.CustomerId = 7;
+        source.ProjectId = 42;
+        source.Items.Add(new InvoiceItem { Description = "Beratung", Quantity = 2, UnitPrice = 100m, VatRate = 19m, Unit = "Stunden" });
+        _repo.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(source);
+        _repo.Setup(r => r.GenerateCreditNoteNumberAsync()).ReturnsAsync("GS-2026-0001");
+        _repo.Setup(r => r.InvoiceNumberExistsAsync("GS-2026-0001")).ReturnsAsync(false);
+        _repo.Setup(r => r.AddAsync(It.IsAny<Invoice>())).ReturnsAsync((Invoice i) => i);
+
+        var result = await _service.CreateCreditNoteFromInvoiceAsync(1, new DateTime(2026, 4, 1));
+
+        result.Type.Should().Be(InvoiceType.CreditNote);
+        result.RelatedInvoiceId.Should().Be(1);
+        result.InvoiceNumber.Should().Be("GS-2026-0001");
+        result.CustomerId.Should().Be(7);
+        result.ProjectId.Should().Be(42);
+        result.Status.Should().Be(InvoiceStatus.Draft);
+        result.InvoiceDate.Kind.Should().Be(DateTimeKind.Utc);
+        result.Items.Should().ContainSingle();
+        result.Items[0].Description.Should().Be("Beratung");
+        result.Items[0].Unit.Should().Be("Stunden");
+        result.Items[0].UnitPrice.Should().Be(-100m);
+    }
+
+    [Fact]
+    public async Task CreateCreditNote_QuellePositionBereitsNegativ_BleibtNegativ()
+    {
+        var source = MakeInvoice(1);
+        source.Items.Add(MakeItem(1, -50m));
+        _repo.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(source);
+        _repo.Setup(r => r.GenerateCreditNoteNumberAsync()).ReturnsAsync("GS-2026-0002");
+        _repo.Setup(r => r.InvoiceNumberExistsAsync("GS-2026-0002")).ReturnsAsync(false);
+        _repo.Setup(r => r.AddAsync(It.IsAny<Invoice>())).ReturnsAsync((Invoice i) => i);
+
+        var result = await _service.CreateCreditNoteFromInvoiceAsync(1, DateTime.UtcNow);
+
+        result.Items[0].UnitPrice.Should().Be(-50m);
+    }
+
+    [Fact]
+    public async Task CreateCreditNote_QuellrechnungNichtGefunden_WirftException()
+    {
+        _repo.Setup(r => r.GetByIdAsync(It.IsAny<int>())).ReturnsAsync((Invoice?)null);
+
+        var act = () => _service.CreateCreditNoteFromInvoiceAsync(99, DateTime.UtcNow);
+
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*99*");
+    }
+
     // ─── UpdateAsync ──────────────────────────────────────────────────────────
 
     [Fact]

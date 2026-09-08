@@ -6,7 +6,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
-using RapportRepo = Kuestencode.Rapport.Data.Repositories;
 
 namespace Kuestencode.Rapport;
 
@@ -29,11 +28,7 @@ public static class RapportModule
         services.AddDbContextFactory<RapportDbContext>(options =>
             options.UseNpgsql(configuration.GetConnectionString("DefaultConnection")));
 
-        // Also register scoped DbContext for backward compatibility
-        services.AddScoped(sp => sp.GetRequiredService<IDbContextFactory<RapportDbContext>>().CreateDbContext());
-
         // Register repositories
-        services.AddScoped(typeof(RapportRepo.IRepository<>), typeof(Repository<>));
         services.AddScoped<TimeEntryRepository>();
 
         // Rapport core services

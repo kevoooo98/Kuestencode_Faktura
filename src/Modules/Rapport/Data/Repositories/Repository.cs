@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Kuestencode.Rapport.Data.Repositories;
 
-public class Repository<T> : IRepository<T> where T : class
+public class Repository<T> where T : class
 {
     protected readonly IDbContextFactory<RapportDbContext> _contextFactory;
 

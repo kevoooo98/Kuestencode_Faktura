@@ -75,11 +75,10 @@ Kuestencode.Core/
 │   └── SmtpConfiguration.cs
 │
 ├── Interfaces/           # Abstraktionen
-│   ├── IRepository<T>.cs # Generisches Repository
 │   ├── ICompanyService.cs
 │   ├── ICustomerService.cs
-│   ├── IEmailService.cs
-│   ├── IPdfService.cs
+│   ├── IEmailEngine.cs
+│   ├── IPdfEngine.cs
 │   └── IDocumentService.cs
 │
 ├── Services/             # Generische Implementierungen

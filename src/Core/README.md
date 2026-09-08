@@ -5,7 +5,7 @@ Kern-Bibliothek mit wiederverwendbaren Modellen, Interfaces und Services für al
 ## Features
 
 - **Models**: Grundlegende Entitäten wie `Company`, `Customer`, `Address`, `BankAccount`
-- **Interfaces**: Abstrakte Service-Definitionen für `IRepository<T>`, `IEmailService`, `IPdfService`, etc.
+- **Interfaces**: Abstrakte Service-Definitionen für `IEmailService`, etc.
 - **Validation**: Wiederverwendbare Validierungsattribute (IBAN, PLZ, Kundennummer)
 - **Services**: Generische Implementierungen wie `CoreEmailService`
 - **Enums**: Gemeinsame Aufzählungen wie `Country`, `PaymentMethod`

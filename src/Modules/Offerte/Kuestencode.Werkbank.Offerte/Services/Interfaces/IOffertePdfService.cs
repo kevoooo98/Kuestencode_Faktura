@@ -9,15 +9,6 @@ namespace Kuestencode.Werkbank.Offerte.Services.Pdf;
 public interface IOffertePdfService
 {
     /// <summary>
-    /// Erzeugt ein PDF für das angegebene Angebot.
-    /// </summary>
-    /// <param name="angebot">Das Angebot mit Positionen.</param>
-    /// <param name="kunde">Die Kundendaten.</param>
-    /// <param name="firma">Die Firmenstammdaten.</param>
-    /// <returns>PDF als Byte-Array.</returns>
-    byte[] Erstelle(Angebot angebot, Customer kunde, Company firma);
-
-    /// <summary>
     /// Erzeugt ein PDF für das angegebene Angebot mit expliziten Settings.
     /// Verwenden Sie diese Überladung, um Deadlocks in Blazor zu vermeiden.
     /// </summary>

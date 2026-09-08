@@ -541,7 +541,7 @@ public class XRechnungService : IXRechnungService
     private string GetCountryCode(string country)
     {
         // Konvertiere Ländernamen zu ISO 3166-1 Alpha-2 Codes
-        return country?.ToUpper() switch
+        return country.ToUpper() switch
         {
             "DEUTSCHLAND" => "DE",
             "GERMANY" => "DE",
@@ -552,7 +552,7 @@ public class XRechnungService : IXRechnungService
             "DE" => "DE",
             "AT" => "AT",
             "CH" => "CH",
-            _ => country?.Length == 2 ? country.ToUpper() : "DE" // Fallback
+            _ => country.Length == 2 ? country.ToUpper() : "DE" // Fallback
         };
     }
 }

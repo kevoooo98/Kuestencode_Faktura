@@ -83,6 +83,14 @@ migrationBuilder.Sql(@"
 - Keine defensive Fehlerbehandlung für Szenarien die nicht eintreten können
 - Validierung nur an Systemgrenzen (User-Input, externe APIs)
 - Keine Abstraktionen über tatsächlichen Bedarf hinaus
+- KISS = Keep it simple, stupid!
+- DRY = Don't Repeat Yourself!
+- SOLID 
+  - S – Single Responsibility Principle (SRP): Eine Klasse sollte nur einen einzigen Grund zur Änderung haben; sie übernimmt genau eine Aufgabe.
+  - O – Open/Closed Principle (OCP): Software-Module sollten offen für Erweiterungen, aber geschlossen für Modifikationen sein.
+  - L – Liskov Substitution Principle (LSP): Objekte abgeleiteter Klassen müssen sich so verhalten, dass sie ihre Basisklassen ohne Fehler ersetzen können.
+  - I – Interface Segregation Principle (ISP): Viele spezifische Schnittstellen sind besser als eine einzige, allgemeine Mega-Schnittstelle.
+  - D – Dependency Inversion Principle (DIP): Module sollten von Abstraktionen abhängen, nicht von konkreten Implementierungen
 
 ## UI — MudBlazor
 

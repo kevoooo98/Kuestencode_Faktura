@@ -57,13 +57,6 @@ public class OffertePdfService : IOffertePdfService
         return Erstelle(angebot, kunde, firma, settings);
     }
 
-    public byte[] Erstelle(Angebot angebot, Customer kunde, Company firma)
-    {
-        // Load settings synchronously for backwards compatibility
-        var settings = _settingsService.GetSettingsAsync().GetAwaiter().GetResult();
-        return Erstelle(angebot, kunde, firma, settings);
-    }
-
     public byte[] Erstelle(Angebot angebot, Customer kunde, Company firma, OfferteSettings settings)
     {
         _logger.LogInformation(

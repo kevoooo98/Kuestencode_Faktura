@@ -19,15 +19,11 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
-    <PackageReference Include="Moq" Version="4.20.72" />
     <PackageReference Include="FluentAssertions" Version="7.0.0" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="9.0.0" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Kuestencode.Werkbank.Acta\Kuestencode.Werkbank.Acta.csproj" />
-    <ProjectReference Include="..\Kuestencode.Werkbank.Acta.Data\Kuestencode.Werkbank.Acta.Data.csproj" />
-    <ProjectReference Include="..\Kuestencode.Werkbank.Acta.Domain\Kuestencode.Werkbank.Acta.Domain.csproj" />
+    <ProjectReference Include="..\..\src\Kuestencode.Shared.Pdf\Kuestencode.Shared.Pdf.csproj" />
   </ItemGroup>
 
 </Project>

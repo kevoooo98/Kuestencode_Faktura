@@ -24,11 +24,6 @@ public class Repository<T> : IRepository<T> where T : class
         return await _dbSet.ToListAsync();
     }
 
-    public virtual async Task<IEnumerable<T>> FindAsync(Expression<Func<T, bool>> predicate)
-    {
-        return await _dbSet.Where(predicate).ToListAsync();
-    }
-
     public virtual async Task<T?> FirstOrDefaultAsync(Expression<Func<T, bool>> predicate)
     {
         return await _dbSet.FirstOrDefaultAsync(predicate);
@@ -51,20 +46,5 @@ public class Repository<T> : IRepository<T> where T : class
     {
         _dbSet.Remove(entity);
         await _context.SaveChangesAsync();
-    }
-
-    public virtual async Task<int> CountAsync()
-    {
-        return await _dbSet.CountAsync();
-    }
-
-    public virtual async Task<int> CountAsync(Expression<Func<T, bool>> predicate)
-    {
-        return await _dbSet.CountAsync(predicate);
-    }
-
-    public virtual async Task<bool> ExistsAsync(Expression<Func<T, bool>> predicate)
-    {
-        return await _dbSet.AnyAsync(predicate);
     }
 }

@@ -9,20 +9,17 @@ namespace Kuestencode.Faktura.Services;
 public class DashboardService : IDashboardService
 {
     private readonly FakturaDbContext _context;
-    private readonly IPdfGeneratorService _pdfGenerator;
     private readonly ICompanyService _companyService;
     private readonly ICustomerService _customerService;
     private readonly ILogger<DashboardService> _logger;
 
     public DashboardService(
         FakturaDbContext context,
-        IPdfGeneratorService pdfGenerator,
         ICompanyService companyService,
         ICustomerService customerService,
         ILogger<DashboardService> logger)
     {
         _context = context;
-        _pdfGenerator = pdfGenerator;
         _companyService = companyService;
         _customerService = customerService;
         _logger = logger;
@@ -88,32 +85,14 @@ public class DashboardService : IDashboardService
         }
 
         // PDF Generation Health Check
-        try
+        // Kein echter Testdruck aus Performancegründen — Erstellung eines PDFs wäre zu teuer für einen Health-Check.
+        healthItems.Add(new ServiceHealthItem
         {
-            // Simple check: Can we instantiate the service?
-            // A real test would generate a minimal PDF, but we avoid that for performance
-            var serviceExists = _pdfGenerator != null;
-
-            healthItems.Add(new ServiceHealthItem
-            {
-                Name = "PDF-Erstellung",
-                IsHealthy = serviceExists,
-                StatusText = serviceExists ? "OK" : "Gestört",
-                CheckedAt = now
-            });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "PDF service health check failed");
-            healthItems.Add(new ServiceHealthItem
-            {
-                Name = "PDF-Erstellung",
-                IsHealthy = false,
-                StatusText = "Gestört",
-                CheckedAt = now,
-                DetailMessage = "PDF-Generator ist nicht verfügbar."
-            });
-        }
+            Name = "PDF-Erstellung",
+            IsHealthy = true,
+            StatusText = "OK",
+            CheckedAt = now
+        });
 
         return healthItems;
     }

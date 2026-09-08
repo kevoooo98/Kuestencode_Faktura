@@ -7,6 +7,7 @@ using Kuestencode.Rapport.Data.Repositories;
 using Kuestencode.Rapport.Models;
 using Kuestencode.Rapport.Services;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using Xunit;
 
@@ -17,8 +18,7 @@ public class TimerServiceTests
     [Fact]
     public async Task StartTimerAsync_WithProject_UsesProjectCustomer()
     {
-        using var context = CreateDbContext();
-        var repository = new TimeEntryRepository(context);
+        var repository = new TimeEntryRepository(CreateContextFactory());
         var projectService = new Mock<IProjectService>();
         var customerService = new Mock<ICustomerService>();
 
@@ -36,7 +36,7 @@ public class TimerServiceTests
         customerService.Setup(c => c.GetByIdAsync(7))
             .ReturnsAsync(new Customer { Id = 7, Name = "Nordlicht Media" });
 
-        var service = new TimerService(repository, projectService.Object, customerService.Object);
+        var service = CreateTimerService(repository, projectService.Object, customerService.Object);
 
         var entry = await service.StartTimerAsync(42, 999, "Working on feature");
 
@@ -50,15 +50,14 @@ public class TimerServiceTests
     [Fact]
     public async Task StartTimerAsync_WithoutProject_RequiresCustomerId()
     {
-        using var context = CreateDbContext();
-        var repository = new TimeEntryRepository(context);
+        var repository = new TimeEntryRepository(CreateContextFactory());
         var projectService = new Mock<IProjectService>();
         var customerService = new Mock<ICustomerService>();
 
         customerService.Setup(c => c.GetByIdAsync(1))
             .ReturnsAsync(new Customer { Id = 1, Name = "Kuestencode GmbH" });
 
-        var service = new TimerService(repository, projectService.Object, customerService.Object);
+        var service = CreateTimerService(repository, projectService.Object, customerService.Object);
 
         var entry = await service.StartTimerAsync(null, 1, "Support call");
 
@@ -70,12 +69,11 @@ public class TimerServiceTests
     [Fact]
     public async Task StartTimerAsync_WithoutProjectAndCustomer_ThrowsValidationException()
     {
-        using var context = CreateDbContext();
-        var repository = new TimeEntryRepository(context);
+        var repository = new TimeEntryRepository(CreateContextFactory());
         var projectService = new Mock<IProjectService>();
         var customerService = new Mock<ICustomerService>();
 
-        var service = new TimerService(repository, projectService.Object, customerService.Object);
+        var service = CreateTimerService(repository, projectService.Object, customerService.Object);
 
         var act = () => service.StartTimerAsync(null, null, "Missing customer");
 
@@ -86,15 +84,14 @@ public class TimerServiceTests
     [Fact]
     public async Task StartTimerAsync_WhenTimerAlreadyRunning_ThrowsValidationException()
     {
-        using var context = CreateDbContext();
-        var repository = new TimeEntryRepository(context);
+        var repository = new TimeEntryRepository(CreateContextFactory());
         var projectService = new Mock<IProjectService>();
         var customerService = new Mock<ICustomerService>();
 
         customerService.Setup(c => c.GetByIdAsync(1))
             .ReturnsAsync(new Customer { Id = 1, Name = "Kuestencode GmbH" });
 
-        var service = new TimerService(repository, projectService.Object, customerService.Object);
+        var service = CreateTimerService(repository, projectService.Object, customerService.Object);
 
         await service.StartTimerAsync(null, 1, "First timer");
 
@@ -107,23 +104,25 @@ public class TimerServiceTests
     [Fact]
     public async Task GetCurrentDurationAsync_ReturnsElapsedTime()
     {
-        using var context = CreateDbContext();
-        var repository = new TimeEntryRepository(context);
+        var contextFactory = CreateContextFactory();
+
+        await using (var context = await contextFactory.CreateDbContextAsync())
+        {
+            context.TimeEntries.Add(new TimeEntry
+            {
+                StartTime = DateTime.UtcNow.AddMinutes(-10),
+                Status = TimeEntryStatus.Running,
+                CustomerId = 1,
+                CustomerName = "Kuestencode GmbH"
+            });
+            await context.SaveChangesAsync();
+        }
+
+        var repository = new TimeEntryRepository(contextFactory);
         var projectService = new Mock<IProjectService>();
         var customerService = new Mock<ICustomerService>();
 
-        var entry = new TimeEntry
-        {
-            StartTime = DateTime.UtcNow.AddMinutes(-10),
-            Status = TimeEntryStatus.Running,
-            CustomerId = 1,
-            CustomerName = "Kuestencode GmbH"
-        };
-
-        context.TimeEntries.Add(entry);
-        await context.SaveChangesAsync();
-
-        var service = new TimerService(repository, projectService.Object, customerService.Object);
+        var service = CreateTimerService(repository, projectService.Object, customerService.Object);
 
         var duration = await service.GetCurrentDurationAsync();
 
@@ -133,8 +132,7 @@ public class TimerServiceTests
     [Fact]
     public async Task StartTimerAsync_CachesProjectName_WhenProjectProvided()
     {
-        using var context = CreateDbContext();
-        var repository = new TimeEntryRepository(context);
+        var repository = new TimeEntryRepository(CreateContextFactory());
         var projectService = new Mock<IProjectService>();
         var customerService = new Mock<ICustomerService>();
 
@@ -152,7 +150,7 @@ public class TimerServiceTests
         customerService.Setup(c => c.GetByIdAsync(2))
             .ReturnsAsync(new Customer { Id = 2, Name = "Seewind IT" });
 
-        var service = new TimerService(repository, projectService.Object, customerService.Object);
+        var service = CreateTimerService(repository, projectService.Object, customerService.Object);
 
         var entry = await service.StartTimerAsync(5, null, "Project work");
 
@@ -160,13 +158,34 @@ public class TimerServiceTests
         entry.CustomerName.Should().Be("Seewind IT");
     }
 
-    private static RapportDbContext CreateDbContext()
+    private static TimerService CreateTimerService(
+        TimeEntryRepository repository,
+        IProjectService projectService,
+        ICustomerService customerService)
+    {
+        var settingsService = new SettingsService(CreateContextFactory(), NullLogger<SettingsService>.Instance);
+        return new TimerService(repository, projectService, customerService, settingsService, new TimeRoundingService());
+    }
+
+    private static IDbContextFactory<RapportDbContext> CreateContextFactory()
     {
         var options = new DbContextOptionsBuilder<RapportDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
 
-        return new RapportDbContext(options);
+        return new TestDbContextFactory(options);
+    }
+
+    private sealed class TestDbContextFactory : IDbContextFactory<RapportDbContext>
+    {
+        private readonly DbContextOptions<RapportDbContext> _options;
+
+        public TestDbContextFactory(DbContextOptions<RapportDbContext> options)
+        {
+            _options = options;
+        }
+
+        public RapportDbContext CreateDbContext() => new(_options);
     }
 
     private class TestProject : IProject
