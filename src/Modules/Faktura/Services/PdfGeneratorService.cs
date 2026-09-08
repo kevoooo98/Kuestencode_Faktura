@@ -58,6 +58,8 @@ public class PdfGeneratorService : IPdfGeneratorService
             throw new InvalidOperationException("Rechnung nicht gefunden");
         }
 
+        await LoadSourceInvoicesAsync(invoice);
+
         // Lade Customer und Company via Host API
         _logger.LogInformation("PdfGenerator: loading customer (InvoiceId={InvoiceId}, CustomerId={CustomerId})", invoiceId, invoice.CustomerId);
         var customerDto = await _hostApiClient.GetCustomerAsync(invoice.CustomerId);
@@ -197,6 +199,36 @@ public class PdfGeneratorService : IPdfGeneratorService
         await File.WriteAllBytesAsync(filePath, pdfBytes);
 
         return fileName;
+    }
+
+    /// <summary>
+    /// Lädt für jeden Abschlag die verknüpfte Abschlagsrechnung inkl. Positionen und Zahlungen nach,
+    /// da SourceInvoice als [NotMapped]-Navigation nicht per Include geladen werden kann.
+    /// </summary>
+    private async Task LoadSourceInvoicesAsync(Invoice invoice)
+    {
+        var sourceInvoiceIds = invoice.DownPayments
+            .Where(d => d.SourceInvoiceId.HasValue)
+            .Select(d => d.SourceInvoiceId!.Value)
+            .Distinct()
+            .ToList();
+
+        if (sourceInvoiceIds.Count == 0)
+            return;
+
+        var sourceInvoices = await _context.Invoices
+            .Include(i => i.Items)
+            .Include(i => i.Payments)
+            .Where(i => sourceInvoiceIds.Contains(i.Id))
+            .ToDictionaryAsync(i => i.Id);
+
+        foreach (var downPayment in invoice.DownPayments.Where(d => d.SourceInvoiceId.HasValue))
+        {
+            if (sourceInvoices.TryGetValue(downPayment.SourceInvoiceId!.Value, out var sourceInvoice))
+            {
+                downPayment.SourceInvoice = sourceInvoice;
+            }
+        }
     }
 
     /// <summary>

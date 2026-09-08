@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Kuestencode.Faktura.Models;
 
@@ -22,4 +23,10 @@ public class DownPayment
     public DateTime? PaymentDate { get; set; }
 
     public DateTime CreatedAt { get; set; }
+
+    public int? SourceInvoiceId { get; set; }
+
+    // Abschlagsrechnung, auf die sich dieser Abschlag bezieht - wird separat geladen
+    [NotMapped]
+    public Invoice? SourceInvoice { get; set; }
 }

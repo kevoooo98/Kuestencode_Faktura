@@ -58,6 +58,7 @@ public partial class Create
     private bool _saving = false;
     private string? _errorMessage;
     private decimal _totalNet, _totalVat, _totalGross, _totalDownPayments, _amountDue;
+    private List<Invoice> _downPaymentInvoiceCandidates = new();
     private decimal _discountAmount, _totalNetAfterDiscount;
     private bool _enableDiscount = false;
     private bool _isReverseCharge = false;
@@ -109,6 +110,7 @@ public partial class Create
             _company = await CompanyService.GetCompanyAsync();
             var paymentDays = _company?.DefaultPaymentTermDays ?? 14;
             _dueDate = DateTime.Today.AddDays(paymentDays);
+            _downPaymentInvoiceCandidates = await InvoiceService.GetByTypeAsync(InvoiceType.Invoice);
             AddItem();
             SyncTimesheetRange();
             RecalculateTotals();
@@ -419,6 +421,37 @@ public partial class Create
     {
         _invoice.DownPayments.Remove(downPayment);
         RecalculateTotals();
+    }
+
+    private void OnDownPaymentSourceInvoiceChanged(DownPayment downPayment)
+    {
+        downPayment.SourceInvoiceId = downPayment.SourceInvoice?.Id;
+
+        if (downPayment.SourceInvoice == null) return;
+
+        if (string.IsNullOrWhiteSpace(downPayment.Description))
+            downPayment.Description = downPayment.SourceInvoice.InvoiceNumber;
+
+        if (downPayment.Amount == 0)
+            downPayment.Amount = downPayment.SourceInvoice.TotalGross;
+
+        RecalculateTotals();
+    }
+
+    private async Task<IEnumerable<Invoice>> SearchDownPaymentInvoices(string value, CancellationToken token)
+    {
+        await Task.CompletedTask;
+
+        if (_selectedCustomer == null)
+            return [];
+
+        var candidates = _downPaymentInvoiceCandidates.Where(i => i.CustomerId == _selectedCustomer.Id);
+
+        if (string.IsNullOrWhiteSpace(value))
+            return candidates;
+
+        return candidates.Where(i =>
+            i.InvoiceNumber.Contains(value, StringComparison.OrdinalIgnoreCase));
     }
 
     private void AddDiscount()

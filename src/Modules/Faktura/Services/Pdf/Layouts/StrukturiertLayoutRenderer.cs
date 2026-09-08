@@ -14,8 +14,9 @@ public class StrukturiertLayoutRenderer : BasePdfLayout
     public StrukturiertLayoutRenderer(
         PdfTemplateEngine templateEngine,
         PdfSummaryBlockBuilder summaryBlockBuilder,
+        PdfDownPaymentDetailBuilder downPaymentDetailBuilder,
         PdfPaymentInfoBuilder paymentInfoBuilder)
-        : base(templateEngine, summaryBlockBuilder, paymentInfoBuilder)
+        : base(templateEngine, summaryBlockBuilder, downPaymentDetailBuilder, paymentInfoBuilder)
     {
     }
 
@@ -112,6 +113,10 @@ public class StrukturiertLayoutRenderer : BasePdfLayout
             // Summary block in box
             column.Item().PaddingTop(15).Element(c =>
                 SummaryBlockBuilder.RenderWithBorder(c, invoice, company));
+
+            // Down payment detail (Abschlagsrechnungstabelle / Zahlungsübersicht)
+            column.Item().PaddingTop(15).Element(c =>
+                DownPaymentDetailBuilder.Render(c, invoice, company));
 
             // Tax notices
             RenderKleinunternehmerNotice(column, company);

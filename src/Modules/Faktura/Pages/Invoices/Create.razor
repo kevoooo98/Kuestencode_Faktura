@@ -288,6 +288,7 @@
                 <MudTable Items="@_invoice.DownPayments" Dense="true" Hover="true" Breakpoint="Breakpoint.Sm">
                     <HeaderContent>
                         <MudTh>Beschreibung</MudTh>
+                        <MudTh Style="width: 220px">Abschlagsrechnung (optional)</MudTh>
                         <MudTh Style="width: 150px; text-align: right">Betrag</MudTh>
                         <MudTh Style="width: 150px">Datum</MudTh>
                         <MudTh Style="width: 60px"></MudTh>
@@ -298,6 +299,19 @@
                                          Variant="Variant.Outlined" Required="true"
                                          Placeholder="z.B. Anzahlung vom 15.12.2024"
                                          OnBlur="RecalculateTotals" />
+                        </MudTd>
+                        <MudTd DataLabel="Abschlagsrechnung">
+                            <MudAutocomplete T="Invoice"
+                                @bind-Value="downPayment.SourceInvoice"
+                                @bind-Value:after="@(() => OnDownPaymentSourceInvoiceChanged(downPayment))"
+                                SearchFunc="@SearchDownPaymentInvoices"
+                                ToStringFunc="@(i => i?.InvoiceNumber ?? string.Empty)"
+                                Margin="Margin.Dense" Variant="Variant.Outlined"
+                                ResetValueOnEmptyText="true" CoerceText="true" CoerceValue="false">
+                                <ItemTemplate Context="candidate">
+                                    <MudText>@candidate.InvoiceNumber</MudText>
+                                </ItemTemplate>
+                            </MudAutocomplete>
                         </MudTd>
                         <MudTd DataLabel="Betrag" Style="text-align: right">
                             <MudNumericField @bind-Value="downPayment.Amount" Margin="Margin.Dense"

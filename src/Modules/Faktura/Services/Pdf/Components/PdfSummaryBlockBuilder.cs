@@ -151,34 +151,7 @@ public class PdfSummaryBlockBuilder
     {
         if (invoice.TotalDownPayments > 0)
         {
-            var labelText = sumColumn.Item().PaddingTop(8).Text("Abgezogen:").FontSize(9);
-            if (textColor != null)
-                labelText.FontColor(textColor);
-            else
-                labelText.FontColor(TextSecondaryColor);
-
-            foreach (var downPayment in invoice.DownPayments)
-            {
-                sumColumn.Item().PaddingTop(2).Row(row =>
-                {
-                    var dateText = downPayment.PaymentDate.HasValue
-                        ? $"{downPayment.Description} ({downPayment.PaymentDate.Value:dd.MM.yyyy})"
-                        : downPayment.Description;
-
-                    var descText = row.RelativeItem().Text(dateText).FontSize(9);
-                    if (textColor != null)
-                        descText.FontColor(textColor);
-                    else
-                        descText.FontColor(TextSecondaryColor);
-
-                    var amountText = row.ConstantItem(100).AlignRight().Text($"-{downPayment.Amount.ToString("C2", _germanCulture)}").FontSize(9);
-                    if (textColor != null)
-                        amountText.FontColor(textColor);
-                    else
-                        amountText.FontColor(TextSecondaryColor);
-                });
-            }
-
+            // Aufschlüsselung je Abschlag siehe Abschlagsrechnungstabelle/Zahlungsübersicht (PdfDownPaymentDetailBuilder)
             var borderColor = textColor == "#FFFFFF" ? "#FFFFFF" : DividerColor;
             sumColumn.Item().PaddingTop(8).BorderTop(2).BorderColor(borderColor).PaddingTop(5);
 

@@ -411,6 +411,16 @@ public class InvoiceController : ControllerBase
             relatedInvoiceNumber = relatedInvoice?.InvoiceNumber;
         }
 
+        var sourceInvoiceNumbers = new Dictionary<int, string>();
+        foreach (var sourceInvoiceId in invoice.DownPayments.Where(d => d.SourceInvoiceId.HasValue).Select(d => d.SourceInvoiceId!.Value).Distinct())
+        {
+            var sourceInvoice = await _invoiceService.GetByIdAsync(sourceInvoiceId, includeCustomer: false, includeItems: false);
+            if (sourceInvoice != null)
+            {
+                sourceInvoiceNumbers[sourceInvoiceId] = sourceInvoice.InvoiceNumber;
+            }
+        }
+
         return new InvoiceDto
         {
             Type = invoice.Type.ToString(),
@@ -466,7 +476,11 @@ public class InvoiceController : ControllerBase
                 Description = dp.Description,
                 Amount = dp.Amount,
                 PaymentDate = dp.PaymentDate,
-                CreatedAt = dp.CreatedAt
+                CreatedAt = dp.CreatedAt,
+                SourceInvoiceId = dp.SourceInvoiceId,
+                SourceInvoiceNumber = dp.SourceInvoiceId.HasValue && sourceInvoiceNumbers.TryGetValue(dp.SourceInvoiceId.Value, out var number)
+                    ? number
+                    : null
             }).ToList()
         };
     }

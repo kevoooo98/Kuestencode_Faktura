@@ -14,6 +14,7 @@ public abstract class BasePdfLayout : IPdfLayoutRenderer
 {
     protected readonly PdfTemplateEngine TemplateEngine;
     protected readonly PdfSummaryBlockBuilder SummaryBlockBuilder;
+    protected readonly PdfDownPaymentDetailBuilder DownPaymentDetailBuilder;
     protected readonly PdfPaymentInfoBuilder PaymentInfoBuilder;
     protected readonly CultureInfo GermanCulture = new CultureInfo("de-DE");
 
@@ -26,10 +27,12 @@ public abstract class BasePdfLayout : IPdfLayoutRenderer
     protected BasePdfLayout(
         PdfTemplateEngine templateEngine,
         PdfSummaryBlockBuilder summaryBlockBuilder,
+        PdfDownPaymentDetailBuilder downPaymentDetailBuilder,
         PdfPaymentInfoBuilder paymentInfoBuilder)
     {
         TemplateEngine = templateEngine;
         SummaryBlockBuilder = summaryBlockBuilder;
+        DownPaymentDetailBuilder = downPaymentDetailBuilder;
         PaymentInfoBuilder = paymentInfoBuilder;
     }
 

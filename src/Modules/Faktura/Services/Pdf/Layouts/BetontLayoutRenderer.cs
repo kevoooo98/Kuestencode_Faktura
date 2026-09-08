@@ -14,8 +14,9 @@ public class BetontLayoutRenderer : BasePdfLayout
     public BetontLayoutRenderer(
         PdfTemplateEngine templateEngine,
         PdfSummaryBlockBuilder summaryBlockBuilder,
+        PdfDownPaymentDetailBuilder downPaymentDetailBuilder,
         PdfPaymentInfoBuilder paymentInfoBuilder)
-        : base(templateEngine, summaryBlockBuilder, paymentInfoBuilder)
+        : base(templateEngine, summaryBlockBuilder, downPaymentDetailBuilder, paymentInfoBuilder)
     {
     }
 
@@ -126,6 +127,10 @@ public class BetontLayoutRenderer : BasePdfLayout
             // Summary block highlighted
             column.Item().PaddingTop(15).Element(c =>
                 SummaryBlockBuilder.RenderWithBackground(c, invoice, company));
+
+            // Down payment detail (Abschlagsrechnungstabelle / Zahlungsübersicht)
+            column.Item().PaddingTop(15).Element(c =>
+                DownPaymentDetailBuilder.Render(c, invoice, company));
 
             // Tax notices
             RenderKleinunternehmerNotice(column, company);

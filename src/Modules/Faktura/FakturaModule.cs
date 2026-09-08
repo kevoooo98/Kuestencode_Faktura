@@ -57,6 +57,7 @@ public static class FakturaModule
         services.AddScoped<PdfTemplateEngine>();
         services.AddScoped<PdfQRCodeGenerator>();
         services.AddScoped<PdfSummaryBlockBuilder>();
+        services.AddScoped<PdfDownPaymentDetailBuilder>();
         services.AddScoped<PdfPaymentInfoBuilder>();
         services.AddScoped<KlarLayoutRenderer>();
         services.AddScoped<StrukturiertLayoutRenderer>();

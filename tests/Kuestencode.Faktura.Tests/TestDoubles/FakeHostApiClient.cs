@@ -13,7 +13,17 @@ namespace Kuestencode.Faktura.Tests.TestDoubles;
 /// </summary>
 public class FakeHostApiClient : IHostApiClient
 {
-    public Task<CompanyDto?> GetCompanyAsync() => Task.FromResult<CompanyDto?>(null);
+    public Task<CompanyDto?> GetCompanyAsync() => Task.FromResult<CompanyDto?>(new CompanyDto
+    {
+        OwnerFullName = "Erika Musterfrau",
+        Address = "Hafenstraße 1",
+        PostalCode = "20457",
+        City = "Hamburg",
+        Country = "Deutschland",
+        BankName = "VR Bank Nord eG",
+        BankAccount = "DE23217635420032798824",
+        Email = "info@kuestencode.de"
+    });
 
     public Task UpdateCompanyAsync(UpdateCompanyRequest request) => Task.CompletedTask;
 

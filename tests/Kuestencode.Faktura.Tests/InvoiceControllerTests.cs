@@ -149,4 +149,34 @@ public class InvoiceControllerTests : IClassFixture<FakturaWebApplicationFactory
         var response = await _client.GetAsync("/api/Invoice/999999");
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
+
+    [Fact]
+    public async Task GetById_AbschlagMitVerknuepfterAbschlagsrechnung_LiefertSourceInvoiceNummer()
+    {
+        var sourceResponse = await _client.PostAsJsonAsync("/api/Invoice", MakeCreateRequest());
+        var sourceInvoice = (await sourceResponse.Content.ReadFromJsonAsync<InvoiceDto>())!;
+
+        var finalResponse = await _client.PostAsJsonAsync("/api/Invoice", MakeCreateRequest());
+        var finalInvoice = (await finalResponse.Content.ReadFromJsonAsync<InvoiceDto>())!;
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<FakturaDbContext>();
+            context.DownPayments.Add(new DownPayment
+            {
+                InvoiceId = finalInvoice.Id,
+                Description = "1. Abschlagsrechnung",
+                Amount = 100m,
+                SourceInvoiceId = sourceInvoice.Id
+            });
+            await context.SaveChangesAsync();
+        }
+
+        var getResponse = await _client.GetAsync($"/api/Invoice/{finalInvoice.Id}");
+        var updated = await getResponse.Content.ReadFromJsonAsync<InvoiceDto>();
+
+        var downPayment = updated!.DownPayments.Should().ContainSingle().Subject;
+        downPayment.SourceInvoiceId.Should().Be(sourceInvoice.Id);
+        downPayment.SourceInvoiceNumber.Should().Be(sourceInvoice.InvoiceNumber);
+    }
 }

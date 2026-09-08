@@ -86,6 +86,7 @@ public partial class Edit
     private bool _loadingProjectReceipts;
     private bool _receiptAttachmentAdded;
     private readonly HashSet<Guid> _pendingReceiptAttachmentMarks = new();
+    private List<Invoice> _downPaymentInvoiceCandidates = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -120,6 +121,10 @@ public partial class Edit
 
             // Initialize project selection from existing invoice
             _selectedProjectExternalId = _invoice.ProjectId;
+
+            _downPaymentInvoiceCandidates = (await InvoiceService.GetByTypeAsync(InvoiceType.Invoice))
+                .Where(i => i.Id != _invoice.Id)
+                .ToList();
 
             SyncTimesheetRange();
             RecalculateTotals();
@@ -364,6 +369,37 @@ public partial class Edit
 
         _invoice.DownPayments.Remove(downPayment);
         RecalculateTotals();
+    }
+
+    private void OnDownPaymentSourceInvoiceChanged(DownPayment downPayment)
+    {
+        downPayment.SourceInvoiceId = downPayment.SourceInvoice?.Id;
+
+        if (downPayment.SourceInvoice == null) return;
+
+        if (string.IsNullOrWhiteSpace(downPayment.Description))
+            downPayment.Description = downPayment.SourceInvoice.InvoiceNumber;
+
+        if (downPayment.Amount == 0)
+            downPayment.Amount = downPayment.SourceInvoice.TotalGross;
+
+        RecalculateTotals();
+    }
+
+    private async Task<IEnumerable<Invoice>> SearchDownPaymentInvoices(string value, CancellationToken token)
+    {
+        await Task.CompletedTask;
+
+        if (_selectedCustomer == null)
+            return [];
+
+        var candidates = _downPaymentInvoiceCandidates.Where(i => i.CustomerId == _selectedCustomer.Id);
+
+        if (string.IsNullOrWhiteSpace(value))
+            return candidates;
+
+        return candidates.Where(i =>
+            i.InvoiceNumber.Contains(value, StringComparison.OrdinalIgnoreCase));
     }
 
     private void AddDiscount()

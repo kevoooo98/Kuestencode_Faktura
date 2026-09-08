@@ -14,8 +14,9 @@ public class KlarLayoutRenderer : BasePdfLayout
     public KlarLayoutRenderer(
         PdfTemplateEngine templateEngine,
         PdfSummaryBlockBuilder summaryBlockBuilder,
+        PdfDownPaymentDetailBuilder downPaymentDetailBuilder,
         PdfPaymentInfoBuilder paymentInfoBuilder)
-        : base(templateEngine, summaryBlockBuilder, paymentInfoBuilder)
+        : base(templateEngine, summaryBlockBuilder, downPaymentDetailBuilder, paymentInfoBuilder)
     {
     }
 
@@ -144,6 +145,10 @@ public class KlarLayoutRenderer : BasePdfLayout
             // Summary block
             column.Item().PaddingTop(15).Element(c =>
                 SummaryBlockBuilder.RenderStandard(c, invoice, company));
+
+            // Down payment detail (Abschlagsrechnungstabelle / Zahlungsübersicht)
+            column.Item().PaddingTop(15).Element(c =>
+                DownPaymentDetailBuilder.Render(c, invoice, company));
 
             // Tax notices
             RenderKleinunternehmerNotice(column, company);

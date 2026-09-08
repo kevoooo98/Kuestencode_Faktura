@@ -62,6 +62,8 @@ public record DownPaymentDto
     public decimal Amount { get; init; }
     public DateTime? PaymentDate { get; init; }
     public DateTime CreatedAt { get; init; }
+    public int? SourceInvoiceId { get; init; }
+    public string? SourceInvoiceNumber { get; init; }
 }
 
 public record CreateInvoiceRequest

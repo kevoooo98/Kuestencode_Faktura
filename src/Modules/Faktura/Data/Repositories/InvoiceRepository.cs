@@ -183,9 +183,40 @@ public class InvoiceRepository : Repository<Invoice>, IInvoiceRepository
         if (invoice != null)
         {
             await LoadCustomerAsync(invoice);
+            await LoadSourceInvoicesAsync(invoice);
         }
 
         return invoice;
+    }
+
+    /// <summary>
+    /// Lädt für jeden Abschlag die verknüpfte Abschlagsrechnung inkl. Positionen und Zahlungen nach,
+    /// da SourceInvoice als [NotMapped]-Navigation nicht per Include geladen werden kann.
+    /// </summary>
+    private async Task LoadSourceInvoicesAsync(Invoice invoice)
+    {
+        var sourceInvoiceIds = invoice.DownPayments
+            .Where(d => d.SourceInvoiceId.HasValue)
+            .Select(d => d.SourceInvoiceId!.Value)
+            .Distinct()
+            .ToList();
+
+        if (sourceInvoiceIds.Count == 0)
+            return;
+
+        var sourceInvoices = await _dbSet
+            .Include(i => i.Items)
+            .Include(i => i.Payments)
+            .Where(i => sourceInvoiceIds.Contains(i.Id))
+            .ToDictionaryAsync(i => i.Id);
+
+        foreach (var downPayment in invoice.DownPayments.Where(d => d.SourceInvoiceId.HasValue))
+        {
+            if (sourceInvoices.TryGetValue(downPayment.SourceInvoiceId!.Value, out var sourceInvoice))
+            {
+                downPayment.SourceInvoice = sourceInvoice;
+            }
+        }
     }
 
     public override async Task<IEnumerable<Invoice>> GetAllAsync()

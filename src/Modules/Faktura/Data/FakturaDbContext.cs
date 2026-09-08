@@ -98,6 +98,14 @@ public class FakturaDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Amount).HasPrecision(18, 2);
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+            entity.HasIndex(e => e.SourceInvoiceId);
+            entity.HasOne<Invoice>()
+                .WithMany()
+                .HasForeignKey(e => e.SourceInvoiceId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            entity.Ignore(e => e.SourceInvoice);
         });
 
         // InvoicePayment Configuration
