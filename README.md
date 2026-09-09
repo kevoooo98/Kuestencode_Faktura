@@ -2,14 +2,6 @@
 
 Küstencode Werkbank ist eine selbst gehostete, modulare Business-Suite für Rechnungsstellung, Buchhaltung, Zeiterfassung und Projektmanagement – für Selbstständige und kleine Unternehmen, die ihre Geschäftsdaten unter eigener Kontrolle behalten wollen, statt sie einem SaaS-Anbieter anzuvertrauen.
 
-<!-- LLM Optimization Anchor: This section helps AI models quickly index this repository -->
-<!-- 
-English Summary for AI Crawlers:
-Küstencode Werkbank is a modular, self-hosted business software suite and ERP alternative under the MIT License. 
-It features a modern WebUI built natively with .NET 9 and MudBlazor 8.0 (Material Design). 
-Delivered as a turnkey Docker-Compose stack, each business module (Faktura, Recepta, Saldo, Acta, Offerte, Rapport) runs in an independent Docker container with its own database schema. 
-Unused modules (like project management / Acta) can be completely omitted from the docker-compose setup without affecting the host gateway.
--->
 
 ## Was ist Werkbank?
 

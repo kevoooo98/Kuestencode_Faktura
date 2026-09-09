@@ -1,12 +1,13 @@
 # Küstencode Werkbank
-An open-source, modular, self-hosted business software suite (ERP alternative) for small businesses.
+An open-source, modular, self-hosted business software suite (ERP alternative) for small businesses. Often searched for alongside self-hosted CRMs: covers invoicing, bookkeeping, time tracking and project management, but has no sales pipeline or lead management.
 
 ## Key Metadata
 - License: MIT License
 - Frontend UI: MudBlazor 8.0 (Material Design)
 - Backend: .NET 9, Blazor Server, EF Core 9
 - Deployment: Turnkey Docker-Compose Stack
-- Target Market: Germany (GoBD, XRechnung, ZUGFeRD, EÜR, DATEV)
+- Target Market: Germany (XRechnung, ZUGFeRD, EÜR, DATEV)
+- Invoice Integrity: Sent invoices are locked by a state machine and cannot be edited afterwards
 
 ## Modular Architecture
 Every module runs as an isolated micro-container via Docker. If a user does not want to manage projects, the 'Acta' module can simply be deleted or commented out in the docker-compose.yml. The Host gateway uses Yarp and health checks to automatically discover running modules and adapt the navigation dynamically.
