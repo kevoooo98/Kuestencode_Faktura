@@ -2,6 +2,8 @@
 
 ## Modulare Architektur-Übersicht
 
+Modular heißt hier konkret: Jedes Modul ist ein eigenständiger Service mit eigenem Datenbank-Schema, einzeln startbar/abschaltbar und über REST-APIs mit dem Host und den anderen Modulen verbunden – nicht monolithisch, kein schema-übergreifender Datenbankzugriff.
+
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
 │                          Kuestencode Werkbank                                 │

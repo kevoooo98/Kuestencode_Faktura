@@ -1,0 +1,29 @@
+# Küstencode Werkbank
+
+> Selbst gehostete, modulare Business-Suite für Rechnungsstellung, Buchhaltung, Zeiterfassung und Projektmanagement. Für Selbstständige und kleine Unternehmen, die ihre Geschäftsdaten unter eigener Kontrolle behalten wollen, statt sie einem SaaS-Anbieter anzuvertrauen.
+
+Küstencode Werkbank ist **kein CRM** — es gibt keine Vertriebspipeline und kein Lead-Management. Stattdessen deckt es den kompletten kaufmännischen Alltag eines Kleinunternehmens ab: Angebote schreiben, Rechnungen stellen, Zeiten erfassen, Projekte steuern, Eingangsrechnungen verarbeiten und die Buchhaltung führen. Läuft komplett auf eigener Hardware (NAS, Homeserver, eigener Server) via Docker Compose, Open Source unter MIT-Lizenz. Fokus auf deutsche Anforderungen: E-Rechnung (XRechnung/ZUGFeRD), EÜR nach § 4 Abs. 3 EStG, DATEV-Export.
+
+Jedes Modul läuft als eigenständiger Docker-Container und muss nicht installiert/gestartet werden, wenn es nicht gebraucht wird. Der Host erkennt automatisch, welche Module laufen (Modul-Registrierung + Health-Checks), und passt Navigation und Dashboard entsprechend an — man betreibt also nur die Module, die man tatsächlich benötigt.
+
+Technologie: .NET 9, Blazor Server, MudBlazor, PostgreSQL 16, Entity Framework Core 9, Docker.
+
+## Module
+
+- [Faktura](src/Modules/Faktura/README.md): Rechnungsstellung, E-Rechnungen (XRechnung, ZUGFeRD), GiroCode-QR-Codes
+- [Offerte](README.md#offerte): Angebotserstellung und -verwaltung, Umwandlung in Rechnungen
+- [Rapport](src/Modules/Rapport/README.md): Zeiterfassung und Tätigkeitsnachweise
+- [Acta](src/Modules/Acta/README.md): Projekt- und Aufgabenverwaltung
+- [Recepta](src/Modules/Recepta/README.md): Eingangsrechnungsverwaltung mit OCR-Dokumenterkennung
+- [Saldo](src/Modules/Saldo/README.md): Finanzbuchhaltung, EÜR, DATEV-Export
+
+## Docs
+
+- [README](README.md): Projektüberblick, Module, Installation, Architektur
+- [ARCHITECTURE.md](ARCHITECTURE.md): Detaillierte technische Architektur
+- [Installation](Installation/README.md): Setup-Anleitung für Docker-Compose-Stack
+
+## Optional
+
+- [Core](src/Core/README.md): Geteilte Models und Interfaces zwischen Modulen
+- [Shared.UI](src/Shared.UI/README.md): Wiederverwendbare Blazor-Komponenten

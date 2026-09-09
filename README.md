@@ -1,6 +1,18 @@
 # Küstencode Werkbank
 
-Eine modulare, selbst gehostete Business-Software-Plattform für Selbstständige und kleine Unternehmen – ohne Cloud, ohne Abo, ohne unnötige Komplexität.
+Küstencode Werkbank ist eine selbst gehostete, modulare Business-Suite für Rechnungsstellung, Buchhaltung, Zeiterfassung und Projektmanagement – für Selbstständige und kleine Unternehmen, die ihre Geschäftsdaten unter eigener Kontrolle behalten wollen, statt sie einem SaaS-Anbieter anzuvertrauen.
+
+## Was ist Werkbank?
+
+Werkbank ist **kein CRM** – es gibt keine Vertriebspipeline und kein Lead-Management. Stattdessen deckt es den kompletten kaufmännischen Alltag eines Kleinunternehmens ab: Angebote schreiben, Rechnungen stellen, Zeiten erfassen, Projekte steuern, Eingangsrechnungen verarbeiten und die Buchhaltung (EÜR, DATEV) führen.
+
+**Was „modular" konkret bedeutet:** Jedes Modul läuft als eigenständiger Docker-Container mit eigenem Datenbank-Schema. Man installiert nur die Module, die man tatsächlich braucht – z.B. nur Faktura, ohne Rapport oder Saldo. Der Host erkennt per Health-Check automatisch, welche Module laufen, und zeigt in Navigation und Dashboard nur die verfügbaren Module an. Cross-Modul-Funktionen (z.B. Zeiten aus Rapport an eine Rechnung in Faktura anhängen) laufen über definierte HTTP-Schnittstellen, nicht über direkten Datenbankzugriff zwischen Modulen.
+
+**Warum self-hosted:**
+- Läuft komplett auf eigener Hardware (NAS, Homeserver, eigener Server) – keine Cloud-Pflicht, kein Abo
+- Volle Datenhoheit, insbesondere relevant für DSGVO-sensible Geschäftsdaten
+- Open Source (MIT-Lizenz), Docker-basiert, in .NET/Blazor entwickelt
+- Fokus auf deutsche Anforderungen: E-Rechnung (XRechnung/ZUGFeRD), EÜR nach § 4 Abs. 3 EStG, DATEV-Export
 
 ## Module
 
@@ -104,8 +116,8 @@ Küstencode Werkbank wird als Docker-Compose-Stack betrieben (z.B. auf einem NAS
 ### Schnellstart
 
 ```bash
-git clone https://github.com/yourusername/Kuestencode_Werkbank.git
-cd Kuestencode_Werkbank
+git clone https://github.com/kuesten-code/Werkbank.git
+cd Werkbank
 docker compose up -d
 ```
 
@@ -160,7 +172,8 @@ src/
 Küstencode Werkbank folgt einer modularen Microservice-Architektur:
 
 - **Host** agiert als zentrales Gateway mit Reverse-Proxy (Yarp)
-- **Module** laufen als eigenständige Services mit eigenen Datenbank-Schemas
+- **Module** laufen als eigenständige Services mit eigenen Datenbank-Schemas – jedes Modul einzeln startbar/abschaltbar, unabhängig von den anderen
+- **Erkennung** der laufenden Module durch den Host per Health-Check, keine feste Konfiguration nötig
 - **Kommunikation** erfolgt über REST-APIs und geteilte Contracts
 - **Deployment** Als Container (Produktion)
 

@@ -112,10 +112,10 @@ Dreistufige Priorität für MwSt:
 
 ## Versionierung
 
-- Es muss die ./VERSION Datei angepasst werden. 
+- Es muss die ./VERSION Datei angepasst werden.
 - Entscheide selbst ob major/minor/patch
-- Wenn ein Modul verändert wurde MUSS ein = zwischen Modulname und Version
-- wenn ein Modul nicht angepasst wurde MUSS das Gleichheitszeichen entfernt werden
+- Format ist immer `modul=version` (Gleichheitszeichen ist reines Trennzeichen, kein Änderungs-Flag)
+- Ob ein Modul neu gebaut und gepusht wird, entscheidet die CI-Pipeline automatisch: Sie prüft vor dem Build, ob die in VERSION eingetragene Version für das Modul bereits als Image-Tag auf ghcr.io existiert. Existiert der Tag schon, wird das Modul übersprungen; sonst wird gebaut. Ein manuelles Markieren veränderter Module ist nicht mehr nötig und nicht mehr vorgesehen.
 
 ## Build
 
