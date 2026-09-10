@@ -165,4 +165,47 @@ public class AuditHashChainTests
         result.IsValid.Should().BeFalse();
         result.BrokenAtSequenceNumber.Should().Be(1);
     }
+
+    // ─── Legacy-Zeilen aus der Zeit vor Einführung der Hashkette ───────────────
+
+    private static TestEntry MakeLegacyEntry(long sequenceNumber, string newValue = "Alter Wert") =>
+        new(sequenceNumber, "Invoice", "1", "Modified", "Status", "Draft", newValue,
+            UserId, "Test User", BaseTime, AuditHashChain.Genesis, AuditHashChain.Genesis);
+
+    [Fact]
+    public void VerifyChain_LegacyZeileVorEinfuehrungDerKette_WirdNichtAlsManipulationGemeldet()
+    {
+        // Migration AddAuditLogHashChain setzt für bereits vorhandene Zeilen Hash=Genesis als
+        // Platzhalter, ohne den Inhalt rückwirkend zu hashen. VerifyChain darf diese Zeilen nicht
+        // als "manipuliert" melden, sonst löst jedes Upgrade eines bereits produktiven Systems
+        // (Audit-Log ohne Hashkette -> mit Hashkette) einen falschen Manipulationsalarm auf echten,
+        // nie angefassten historischen Daten aus.
+        var legacy1 = MakeLegacyEntry(1);
+        var legacy2 = MakeLegacyEntry(2, "Noch ein alter Wert");
+        var real3 = MakeChainedEntry(3, AuditHashChain.Genesis);
+
+        var result = AuditHashChain.VerifyChain(new[] { legacy1, legacy2, real3 });
+
+        result.IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public void VerifyChain_EchteZeileAlsLegacyGetarnt_BruchZeigtSichAnDerVerkettungZurNachfolgezeile()
+    {
+        // Ein Angreifer mit direktem DB-Zugriff könnte versuchen, eine bereits echt verkettete Zeile
+        // zu manipulieren und ihren eigenen Hash auf Genesis zurückzusetzen, um die Inhaltsprüfung zu
+        // umgehen (siehe VerifyChain: Hash==Genesis überspringt die Inhaltsprüfung). Das darf nicht
+        // unbemerkt bleiben: die Nachfolgezeile referenziert per PreviousHash weiterhin den echten,
+        // ursprünglichen Hash — die Verkettung bricht daher spätestens dort sichtbar.
+        var entry1 = MakeChainedEntry(1, AuditHashChain.Genesis);
+        var entry2 = MakeChainedEntry(2, entry1.Hash);
+        var entry3 = MakeChainedEntry(3, entry2.Hash);
+
+        var getarnt = entry2 with { NewValue = "Cancelled", Hash = AuditHashChain.Genesis };
+
+        var result = AuditHashChain.VerifyChain(new[] { entry1, getarnt, entry3 });
+
+        result.IsValid.Should().BeFalse("die Verkettung zu entry3 bleibt inkonsistent, auch wenn die getarnte Zeile selbst ungeprüft durchläuft");
+        result.BrokenAtSequenceNumber.Should().Be(3);
+    }
 }

@@ -131,15 +131,23 @@ public static class AuditHashChain
                     $"PreviousHash bei SequenceNumber {entry.SequenceNumber} stimmt nicht mit dem Hash der Vorgänger-Zeile überein — Zeile wurde eingefügt, entfernt oder umsortiert.");
             }
 
-            var recomputed = ComputeHash(
-                entry.PreviousHash, entry.EntityName, entry.EntityId, entry.Action,
-                entry.FieldName, entry.OldValue, entry.NewValue,
-                entry.ChangedByUserId, entry.ChangedByUserName, entry.ChangedAt);
-
-            if (recomputed != entry.Hash)
+            // Zeilen aus der Zeit vor Einführung der Hashkette (Migration AddAuditLogHashChain)
+            // tragen den Platzhalter Genesis als eigenen Hash — für sie gibt es keinen echten Hash
+            // gegen den Inhalt zu prüfen. Die Linkage-Prüfung oben bleibt trotzdem immer aktiv: eine
+            // echte, bereits verkettete Zeile lässt sich nicht nachträglich als "Legacy" tarnen, ohne
+            // die Verkettung zu ihrer wahren Vorgänger- oder Nachfolgezeile zu brechen.
+            if (entry.Hash != Genesis)
             {
-                return new ChainVerificationResult(false, entry.SequenceNumber,
-                    $"Der Inhalt der Zeile mit SequenceNumber {entry.SequenceNumber} wurde nach dem Schreiben verändert (Hash passt nicht mehr zum gespeicherten Inhalt).");
+                var recomputed = ComputeHash(
+                    entry.PreviousHash, entry.EntityName, entry.EntityId, entry.Action,
+                    entry.FieldName, entry.OldValue, entry.NewValue,
+                    entry.ChangedByUserId, entry.ChangedByUserName, entry.ChangedAt);
+
+                if (recomputed != entry.Hash)
+                {
+                    return new ChainVerificationResult(false, entry.SequenceNumber,
+                        $"Der Inhalt der Zeile mit SequenceNumber {entry.SequenceNumber} wurde nach dem Schreiben verändert (Hash passt nicht mehr zum gespeicherten Inhalt).");
+                }
             }
 
             expectedPrevious = entry.Hash;
