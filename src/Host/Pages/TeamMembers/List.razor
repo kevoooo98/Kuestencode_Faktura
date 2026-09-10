@@ -217,11 +217,11 @@
 
     private async Task DeleteMember(TeamMember member)
     {
-        var parameters = new DialogParameters
+        var parameters = new DialogParameters<ConfirmDialog>
         {
-            { "ContentText", $"Möchten Sie den Mitarbeiter '{member.DisplayName}' wirklich löschen?" },
-            { "ButtonText", "Löschen" },
-            { "Color", Color.Error }
+            { x => x.ContentText, $"Möchten Sie den Mitarbeiter '{member.DisplayName}' wirklich löschen?" },
+            { x => x.ConfirmButtonText, "Löschen" },
+            { x => x.ConfirmButtonColor, Color.Error }
         };
 
         var dialog = await DialogService.ShowAsync<ConfirmDialog>("Mitarbeiter löschen", parameters);

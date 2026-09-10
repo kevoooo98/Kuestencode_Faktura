@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
@@ -65,11 +65,11 @@ public partial class List
 
     private async Task DeleteCustomer(Customer customer)
     {
-        var parameters = new DialogParameters
+        var parameters = new DialogParameters<ConfirmDialog>
         {
-            { "ContentText", $"Möchten Sie den Kunden '{customer.Name}' wirklich löschen?" },
-            { "ButtonText", "Löschen" },
-            { "Color", Color.Error }
+            { x => x.ContentText, $"Möchten Sie den Kunden '{customer.Name}' wirklich löschen?" },
+            { x => x.ConfirmButtonText, "Löschen" },
+            { x => x.ConfirmButtonColor, Color.Error }
         };
 
         var dialog = await DialogService.ShowAsync<ConfirmDialog>("Kunde löschen", parameters);
