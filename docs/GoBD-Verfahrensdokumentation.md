@@ -64,13 +64,22 @@ Das PDF, das der Kunde tatsächlich erhalten hat, muss unveränderlich abrufbar 
 | Recepta | `Document` | Status, InvoiceNumber, InvoiceDate, DueDate, AmountNet, AmountTax, AmountGross, SupplierId, Category, Notes, OcrRawText |
 | Recepta | `DocumentPayment` | Amount, PaymentDate, Notes (nur Anlage/Löschung) |
 
-Jeder Eintrag enthält: **wer** (`ChangedByUserId`/`ChangedByUserName`, aus dem JWT-Auth-Context via `ICurrentUserAccessor`), **wann** (`ChangedAt`), **was** (`FieldName`, `OldValue`, `NewValue`) und **welche Aktion** (`Created`/`Modified`/`Deleted`). Zahlungen erscheinen als vollständige Created/Deleted-Zeile mit sichtbarem Betrag (statt einer leeren Sammel-Zeile) und werden der zugehörigen Rechnung/dem Beleg zugeordnet, nicht der Zahlung selbst.
+Jeder Eintrag enthält: **wer** (`ChangedByUserId`/`ChangedByUserName`, aus dem JWT-Auth-Context via `ICurrentUserAccessor`), **wann** (`ChangedAt`), **was** (`FieldName`, `OldValue`, `NewValue`) und **welche Aktion** (`Created`/`Modified`/`Deleted`). Zahlungen erscheinen als vollständige Created/Deleted-Zeile mit sichtbarem Betrag (statt einer leeren Sammel-Zeile) und werden der zugehörigen Rechnung/dem Beleg zugeordnet, nicht der Zahlung selbst. Werte werden kulturunabhängig (InvariantCulture) formatiert, damit z. B. ein Betrag nicht je nach Server-Locale mal mit Komma, mal mit Punkt im Trail steht.
 
 Abrufbar über:
 - `GET /api/invoice/{id}/audit-log` (Faktura)
 - `GET /api/recepta/documents/{id}/audit-log` (Recepta)
 
 Beide werden auf der jeweiligen Detailseite als read-only Tab "Änderungshistorie" angezeigt.
+
+### 5.1 Hashkette (Nachweisbarkeit gegen nachträgliche Manipulation)
+
+Ein Interceptor auf Anwendungsebene schützt nur den Weg über die App — wer direkten Zugriff auf die Datenbank hat (beim selbstgehosteten Betrieb typischerweise der Betreiber selbst), könnte `AuditLogEntries` per `UPDATE`/`DELETE` verändern. Dagegen wirken zwei Maßnahmen:
+
+- **SHA-256-Hashkette** (`AuditHashChain`, Core): jede Zeile hasht ihren eigenen Inhalt zusammen mit dem Hash der Vorgänger-Zeile (`PreviousHash`/`Hash`, fortlaufend nummeriert über `SequenceNumber`). Die Vergabe erfolgt unter einer `SELECT … FOR UPDATE`-Sperre auf die letzte Zeile, damit parallele Schreibvorgänge die Kette nicht gabeln. Eine nachträgliche Änderung einer Zeile macht deren Hash ungültig — und damit auch alle nachfolgenden Hashes, da jeder folgende Hash den vorherigen referenziert. Eine Manipulation bleibt technisch möglich, wird aber **nachweisbar**: das ist der eigentliche GoBD-Punkt, nicht die absolute Verhinderung.
+- **Append-only-Trigger**: `faktura."AuditLogEntries"` und `recepta."AuditLogEntries"` lehnen `UPDATE`/`DELETE` direkt auf Datenbankebene ab (Postgres-Trigger, wirkt auch gegen den App-eigenen DB-Nutzer). Ein Postgres-Superuser kann diesen Trigger technisch entfernen — genau dagegen wirkt die Hashkette als zweite, unabhängige Sicherung.
+
+Zeilen aus der Zeit vor Einführung der Hashkette (Migration `AddAuditLogHashChain`) sind mit dem Platzhalter-Hash `Genesis` (64 Nullen) markiert und damit als "vor Beginn der Kette" erkennbar, nicht als Teil eines verifizierten Verlaufs.
 
 ## 6. Kontenrahmen-Historisierung und Exportnachweise (Saldo)
 
@@ -79,25 +88,37 @@ Beide werden auf der jeweiligen Detailseite als read-only Tab "Änderungshistori
 - **Exportnachweis**: jeder DATEV-/Belege-Export wird in `ExportLog` mit Zeitraum, Dateiname, Anzahl Buchungen, Zeitpunkt und dem tatsächlich ausführenden Nutzer (`ExportedByUserId`, über `ICurrentUserAccessor`) protokolliert und ist über die Export-Historie einsehbar.
 - **Periodenabschluss** (`PeriodClose`): rein informativer, expliziter Vermerk ("Zeitraum abschließen"), den der Nutzer nach einem Export selbst setzt. Zeigt auf dem Dashboard einen Hinweis-Banner ("Zeitraum wurde am … exportiert und abgeschlossen"). Blockiert bewusst **keine** Bearbeitung in Faktura/Recepta — kein modulübergreifender Hard-Lock, um die Module unabhängig voneinander zu halten.
 
-## 7. Aufbewahrung (organisatorisch)
+## 7. Autorisierung und Zugriffsschutz
+
+Das Audit-Log ist nur so aussagekräftig wie die Identität, die es protokolliert — deshalb ist der Zugriffsschutz selbst Teil der GoBD-relevanten Absicherung, nicht nur ein allgemeines Sicherheitsthema.
+
+- Alle Modul-Controller (Faktura, Recepta, Acta, Offerte, Rapport, Saldo) verlangen eine gültige, rollenbasierte Anmeldung (`[RequireRole]`), sowohl direkt als auch über den zentralen Host-Reverse-Proxy erreicht.
+- Interne Modul-zu-Modul-Aufrufe (z. B. Saldo → Faktura/Recepta für die EÜR) werden anhand der Docker-internen Netzwerkherkunft als vertrauenswürdig erkannt — der Host-Container selbst ist davon bewusst ausgenommen, da er auch nicht authentifizierten Browser-Traffic weiterleitet.
+- **Voraussetzung für echten Login-Zwang**: Die Authentifizierung muss in den Host-Einstellungen aktiv geschaltet sein (`AuthEnabled`), was wiederum eine gesetzte Basis-URL, konfiguriertes SMTP und mindestens einen fertig eingerichteten Admin-Account voraussetzt. Ist einer dieser Punkte nicht erfüllt, lässt sich Auth gar nicht erst aktivieren — in diesem Zustand protokolliert das Audit-Log Änderungen als vom internen Systemkontext ausgeführt, nicht von einer echten Person.
+
+## 8. Aufbewahrung (organisatorisch)
 
 Alle GoBD-relevanten Daten liegen in PostgreSQL (Bind-Mount `./data/postgres`) — inklusive der eingefrorenen Rechnungs-PDFs und hochgeladenen Belegdateien, die in der Datenbank gespeichert werden, nicht im Dateisystem. Ein vollständiges Datenbank-Backup deckt damit auch Belege, Audit-Trail und Exportprotokolle ab.
 
 Die gesetzliche Aufbewahrungsfrist für Rechnungen, Belege und Buchungsunterlagen beträgt 10 Jahre (§ 147 AO). Regelmäßige Backups des Postgres-Volumes (z. B. `pg_dump`, extern gelagert) liegen in der Verantwortung des Betreibers — Werkbank automatisiert dies nicht selbst.
 
-## 8. Bekannte Einschränkungen
+## 9. Bekannte Einschränkungen
 
 - Nummernvorschau reserviert bereits beim Öffnen des Formulars eine echte Nummer (siehe Abschnitt 2) — akzeptiertes Restrisiko für abgebrochene Entwürfe, kein GoBD-Verstoß.
 - Kein GDPdU/IDEA-Export (Z1/Z2/Z3) für den Datenzugriff eines Betriebsprüfers — nicht Teil dieser Umsetzung.
-- Kein automatisiertes Backup-/Archivierungssystem in der Software — Aufbewahrung ist Betreiberpflicht (siehe Abschnitt 7).
+- Kein automatisiertes Backup-/Archivierungssystem in der Software — Aufbewahrung ist Betreiberpflicht (siehe Abschnitt 8).
+- Eingefrorene Rechnungs-PDFs und Belegdateien liegen als BLOB in Postgres — für das Volumen eines Kleinunternehmers unkritisch, bläht aber `pg_dump`-Backups auf und skaliert bei sehr großen Datenmengen schlechter als ein externer Objektspeicher.
 
-## 9. Versionsstand
+## 10. Versionsstand
 
 | Modul | Version |
 |---|---|
-| host | 2.11.4 |
-| faktura | 3.15.1 |
-| recepta | 2.12.1 |
-| saldo | 1.4.0 |
+| host | 2.12.0 |
+| faktura | 3.16.1 |
+| recepta | 2.13.1 |
+| acta | 2.6.0 |
+| offerte | 2.7.0 |
+| rapport | 2.8.0 |
+| saldo | 1.4.1 |
 
 Stand: 2026-09-10.

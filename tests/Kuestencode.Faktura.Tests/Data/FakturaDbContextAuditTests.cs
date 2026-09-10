@@ -1,3 +1,4 @@
+using System.Globalization;
 using FluentAssertions;
 using Kuestencode.Faktura.Data;
 using Kuestencode.Faktura.Models;
@@ -97,10 +98,9 @@ public class FakturaDbContextAuditTests
             .Where(e => e.EntityName == nameof(Invoice) && e.EntityId == invoice.Id.ToString() && e.Action == "Created" && e.FieldName == "Amount")
             .ToListAsync();
 
-        // Formatierung folgt der aktuellen Thread-Culture (wie im echten Betrieb, wo ProgramApi
-        // sie fest auf de-DE setzt) — hier bewusst gegen dieselbe .ToString()-Formatierung wie im
-        // Interceptor verglichen, statt gegen ein kulturabhängiges Literal.
-        entries.Should().ContainSingle(e => e.NewValue == amount.ToString());
+        // Der Interceptor formatiert Werte kulturunabhängig (InvariantCulture) fürs Audit-Log,
+        // damit der Trail unabhängig von der Server-Kultur konsistent bleibt (siehe AuditChangeCollector).
+        entries.Should().ContainSingle(e => e.NewValue == amount.ToString(CultureInfo.InvariantCulture));
     }
 
     [Fact]
@@ -124,7 +124,7 @@ public class FakturaDbContextAuditTests
 
         entry.EntityName.Should().Be(nameof(Invoice));
         entry.EntityId.Should().Be(invoice.Id.ToString());
-        entry.OldValue.Should().Be(amount.ToString());
+        entry.OldValue.Should().Be(amount.ToString(CultureInfo.InvariantCulture));
     }
 
     [Fact]
@@ -140,5 +140,70 @@ public class FakturaDbContextAuditTests
 
         var entries = await context.AuditLogEntries.Where(e => e.Action == "Deleted").ToListAsync();
         entries.Should().ContainSingle(e => e.EntityId == invoice.Id.ToString());
+    }
+
+    // ─── Hashkette (GoBD-Nachweisbarkeit) ──────────────────────────────────────
+
+    [Fact]
+    public async Task SaveChanges_ErsteZeile_HatGenesisAlsPreviousHash()
+    {
+        await using var context = CreateContext();
+        var invoice = MakeInvoice();
+
+        context.Invoices.Add(invoice);
+        await context.SaveChangesAsync();
+
+        var entry = await context.AuditLogEntries.SingleAsync();
+        entry.PreviousHash.Should().Be(Kuestencode.Core.Auditing.AuditHashChain.Genesis);
+        entry.Hash.Should().NotBeNullOrEmpty().And.NotBe(entry.PreviousHash);
+    }
+
+    [Fact]
+    public async Task SaveChanges_MehrereZeilen_SindLueckenlosVerkettet()
+    {
+        await using var context = CreateContext();
+        var invoice = MakeInvoice();
+        context.Invoices.Add(invoice);
+        await context.SaveChangesAsync();
+
+        invoice.Status = InvoiceStatus.Sent;
+        await context.SaveChangesAsync();
+        invoice.Notes = "Testnotiz";
+        await context.SaveChangesAsync();
+
+        var entries = await context.AuditLogEntries
+            .OrderBy(e => e.SequenceNumber)
+            .ToListAsync();
+
+        entries.Should().HaveCount(3);
+        for (var i = 1; i < entries.Count; i++)
+        {
+            entries[i].PreviousHash.Should().Be(entries[i - 1].Hash,
+                "jede Zeile muss den Hash ihrer Vorgänger-Zeile referenzieren");
+        }
+    }
+
+    [Fact]
+    public async Task SaveChanges_HashIstManipulationssensitiv_VeraenderterInhaltErgibtAnderenHash()
+    {
+        await using var context = CreateContext();
+        var invoice = MakeInvoice();
+        context.Invoices.Add(invoice);
+        await context.SaveChangesAsync();
+
+        var entry = await context.AuditLogEntries.SingleAsync();
+
+        var recomputed = Kuestencode.Core.Auditing.AuditHashChain.ComputeHash(
+            entry.PreviousHash, entry.EntityName, entry.EntityId, entry.Action,
+            entry.FieldName, entry.OldValue, entry.NewValue,
+            entry.ChangedByUserId, entry.ChangedByUserName, entry.ChangedAt);
+        recomputed.Should().Be(entry.Hash, "unveränderter Inhalt muss denselben Hash reproduzieren");
+
+        // Simuliert eine nachträgliche Manipulation per direktem DB-Zugriff (z.B. UPDATE):
+        var manipulatedHash = Kuestencode.Core.Auditing.AuditHashChain.ComputeHash(
+            entry.PreviousHash, entry.EntityName, entry.EntityId, entry.Action,
+            entry.FieldName, entry.OldValue, newValue: "manipuliert",
+            entry.ChangedByUserId, entry.ChangedByUserName, entry.ChangedAt);
+        manipulatedHash.Should().NotBe(entry.Hash, "ein veränderter Inhalt muss einen abweichenden Hash ergeben");
     }
 }

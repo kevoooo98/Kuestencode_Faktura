@@ -218,7 +218,10 @@ public class ReceptaDbContext : DbContext
             entity.Property(e => e.Action).HasMaxLength(20).IsRequired();
             entity.Property(e => e.FieldName).HasMaxLength(100);
             entity.Property(e => e.ChangedByUserName).HasMaxLength(200).IsRequired();
+            entity.Property(e => e.Hash).HasMaxLength(64).IsRequired();
+            entity.Property(e => e.PreviousHash).HasMaxLength(64).IsRequired();
             entity.HasIndex(e => new { e.EntityName, e.EntityId });
+            entity.HasIndex(e => e.SequenceNumber).IsUnique();
         });
     }
 
@@ -231,8 +234,7 @@ public class ReceptaDbContext : DbContext
 
         if (pending.Count > 0)
         {
-            AppendAuditEntries(pending);
-            base.SaveChanges();
+            AppendAuditEntriesAsync(pending, default).GetAwaiter().GetResult();
         }
 
         return result;
@@ -247,32 +249,79 @@ public class ReceptaDbContext : DbContext
 
         if (pending.Count > 0)
         {
-            AppendAuditEntries(pending);
-            await base.SaveChangesAsync(cancellationToken);
+            await AppendAuditEntriesAsync(pending, cancellationToken);
         }
 
         return result;
     }
 
-    private void AppendAuditEntries(List<PendingAuditChange> pending)
+    /// <summary>
+    /// Hängt die gesammelten Audit-Zeilen verkettet (SHA-256-Hashkette, siehe AuditHashChain) an.
+    /// Der Tip-Hash wird per SELECT...FOR UPDATE in einer eigenen Transaktion gesperrt, damit
+    /// parallele Requests die Kette nicht gabeln.
+    /// </summary>
+    private async Task AppendAuditEntriesAsync(List<PendingAuditChange> pending, CancellationToken ct)
     {
         var user = _currentUserAccessor?.Get() ?? new CurrentUser(Guid.Empty, "System");
 
+        if (!Database.IsRelational())
+        {
+            // Nicht-relationale Provider (EF InMemory in Tests) kennen weder Transaktionen noch
+            // rohes SQL — Kette wird trotzdem gebildet, nur ohne Sperre gegen parallele Requests.
+            // SequenceNumber wird applikationsseitig vergeben (nicht per DB-Identity, s. AuditHashChain).
+            var existing = await AuditLogEntries.ToListAsync(ct);
+            var tipEntry = existing.OrderByDescending(a => a.SequenceNumber).FirstOrDefault();
+            var nextSeq = (tipEntry?.SequenceNumber ?? 0) + 1;
+            AppendChainedEntries(pending, user, tipEntry?.Hash ?? AuditHashChain.Genesis, nextSeq);
+            await base.SaveChangesAsync(ct);
+            return;
+        }
+
+        await using var transaction = await Database.BeginTransactionAsync(ct);
+        try
+        {
+            var tip = await AuditHashChain.GetTipLockedAsync(Database, "recepta.\"AuditLogEntries\"", ct);
+            AppendChainedEntries(pending, user, tip?.Hash ?? AuditHashChain.Genesis, (tip?.SequenceNumber ?? 0) + 1);
+            await base.SaveChangesAsync(ct);
+            await transaction.CommitAsync(ct);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(ct);
+            throw;
+        }
+    }
+
+    private void AppendChainedEntries(List<PendingAuditChange> pending, CurrentUser user, string previousHash, long nextSequenceNumber)
+    {
         foreach (var change in pending)
         {
+            var entityId = AuditChangeCollector.GetEntityId(change);
+            var changedAt = DateTime.UtcNow;
+            var hash = AuditHashChain.ComputeHash(
+                previousHash, change.EntityName, entityId, change.Action,
+                change.FieldName, change.OldValue, change.NewValue,
+                user.UserId, user.UserName, changedAt);
+
             AuditLogEntries.Add(new AuditLogEntry
             {
                 Id = Guid.NewGuid(),
                 EntityName = change.EntityName,
-                EntityId = AuditChangeCollector.GetEntityId(change),
+                EntityId = entityId,
                 Action = change.Action,
                 FieldName = change.FieldName,
                 OldValue = change.OldValue,
                 NewValue = change.NewValue,
                 ChangedByUserId = user.UserId,
                 ChangedByUserName = user.UserName,
-                ChangedAt = DateTime.UtcNow
+                ChangedAt = changedAt,
+                SequenceNumber = nextSequenceNumber,
+                PreviousHash = previousHash,
+                Hash = hash
             });
+
+            previousHash = hash;
+            nextSequenceNumber++;
         }
     }
 

@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 
@@ -79,7 +80,7 @@ public static class AuditChangeCollector
                 {
                     foreach (var field in config.Fields)
                     {
-                        var value = entry.Property(field).CurrentValue?.ToString();
+                        var value = FormatInvariant(entry.Property(field).CurrentValue);
                         if (value == null) continue;
 
                         pending.Add(new PendingAuditChange(entry.Entity, entityName, entityIdOverride, "Created", field, null, value));
@@ -98,7 +99,7 @@ public static class AuditChangeCollector
                 {
                     foreach (var field in config.Fields)
                     {
-                        var value = entry.Property(field).OriginalValue?.ToString();
+                        var value = FormatInvariant(entry.Property(field).OriginalValue);
                         if (value == null) continue;
 
                         pending.Add(new PendingAuditChange(entry.Entity, entityName, entityIdOverride, "Deleted", field, value, null));
@@ -116,8 +117,8 @@ public static class AuditChangeCollector
                 var property = entry.Property(field);
                 if (!property.IsModified) continue;
 
-                var oldValue = property.OriginalValue?.ToString();
-                var newValue = property.CurrentValue?.ToString();
+                var oldValue = FormatInvariant(property.OriginalValue);
+                var newValue = FormatInvariant(property.CurrentValue);
                 if (oldValue == newValue) continue;
 
                 pending.Add(new PendingAuditChange(entry.Entity, entityName, entityIdOverride, "Modified", field, oldValue, newValue));
@@ -138,4 +139,16 @@ public static class AuditChangeCollector
         if (change.EntityIdOverride != null) return change.EntityIdOverride;
         return change.Entity.GetType().GetProperty("Id")?.GetValue(change.Entity)?.ToString() ?? string.Empty;
     }
+
+    /// <summary>
+    /// Formatiert einen Feldwert kulturunabhängig fürs Audit-Log. Ohne dies würde z.B. ein Betrag
+    /// je nach Server-Kultur mal mit Komma, mal mit Punkt im Prüf-Trail landen — ein inkonsistent
+    /// formatierter Trail ist schwerer als "unverändert" zu verteidigen.
+    /// </summary>
+    private static string? FormatInvariant(object? value) => value switch
+    {
+        null => null,
+        IFormattable formattable => formattable.ToString(null, CultureInfo.InvariantCulture),
+        _ => value.ToString()
+    };
 }

@@ -1,3 +1,4 @@
+using System.Globalization;
 using FluentAssertions;
 using Kuestencode.Werkbank.Recepta.Data;
 using Kuestencode.Werkbank.Recepta.Domain.Entities;
@@ -82,9 +83,9 @@ public class ReceptaDbContextAuditTests
             .Where(e => e.EntityName == nameof(Document) && e.EntityId == doc.Id.ToString() && e.Action == "Created" && e.FieldName == "Amount")
             .ToListAsync();
 
-        // Formatierung folgt der aktuellen Thread-Culture (wie im echten Betrieb, wo ProgramApi
-        // sie fest auf de-DE setzt) — bewusst gegen dieselbe .ToString()-Formatierung verglichen.
-        entries.Should().ContainSingle(e => e.NewValue == amount.ToString());
+        // Der Interceptor formatiert Werte kulturunabhängig (InvariantCulture) fürs Audit-Log,
+        // damit der Trail unabhängig von der Server-Kultur konsistent bleibt (siehe AuditChangeCollector).
+        entries.Should().ContainSingle(e => e.NewValue == amount.ToString(CultureInfo.InvariantCulture));
     }
 
     [Fact]
@@ -102,5 +103,46 @@ public class ReceptaDbContextAuditTests
 
         var countAfterChange = await context.AuditLogEntries.CountAsync();
         countAfterChange.Should().Be(countAfterCreate);
+    }
+
+    // ─── Hashkette (GoBD-Nachweisbarkeit) ──────────────────────────────────────
+
+    [Fact]
+    public async Task SaveChanges_ErsteZeile_HatGenesisAlsPreviousHash()
+    {
+        await using var context = CreateContext();
+        var doc = MakeDocument();
+
+        context.Documents.Add(doc);
+        await context.SaveChangesAsync();
+
+        var entry = await context.AuditLogEntries.SingleAsync();
+        entry.PreviousHash.Should().Be(Kuestencode.Core.Auditing.AuditHashChain.Genesis);
+        entry.Hash.Should().NotBeNullOrEmpty().And.NotBe(entry.PreviousHash);
+    }
+
+    [Fact]
+    public async Task SaveChanges_MehrereZeilen_SindLueckenlosVerkettet()
+    {
+        await using var context = CreateContext();
+        var doc = MakeDocument();
+        context.Documents.Add(doc);
+        await context.SaveChangesAsync();
+
+        doc.Status = DocumentStatus.Booked;
+        await context.SaveChangesAsync();
+        doc.Notes = "Testnotiz";
+        await context.SaveChangesAsync();
+
+        var entries = await context.AuditLogEntries
+            .OrderBy(e => e.SequenceNumber)
+            .ToListAsync();
+
+        entries.Should().HaveCount(3);
+        for (var i = 1; i < entries.Count; i++)
+        {
+            entries[i].PreviousHash.Should().Be(entries[i - 1].Hash,
+                "jede Zeile muss den Hash ihrer Vorgänger-Zeile referenzieren");
+        }
     }
 }
