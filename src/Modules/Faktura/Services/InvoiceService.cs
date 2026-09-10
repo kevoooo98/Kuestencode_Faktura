@@ -1,3 +1,4 @@
+using Kuestencode.Core.Auditing;
 using Kuestencode.Faktura.Data;
 using Kuestencode.Faktura.Data.Repositories;
 using Kuestencode.Faktura.Models;
@@ -20,6 +21,7 @@ public interface IInvoiceService
     Task DeleteAsync(int id);
     Task CancelAsync(int id, string? reason);
     Task<List<AuditLogEntryDto>> GetAuditLogAsync(int id);
+    Task<AuditHashChain.ChainVerificationResult> VerifyAuditLogChainAsync();
     Task<string> GenerateInvoiceNumberAsync();
     Task<(string Prefix, string Suffix, int SequenceLength)> GetInvoiceNumberFormatPartsAsync();
     Task<string> GenerateCreditNoteNumberAsync();
@@ -427,6 +429,15 @@ public class InvoiceService : IInvoiceService
                 ChangedAt = a.ChangedAt
             })
             .ToListAsync();
+    }
+
+    public async Task<AuditHashChain.ChainVerificationResult> VerifyAuditLogChainAsync()
+    {
+        var entries = await _context.AuditLogEntries
+            .OrderBy(a => a.SequenceNumber)
+            .ToListAsync();
+
+        return AuditHashChain.VerifyChain(entries);
     }
 
     public Task<decimal> CalculateTotalGrossAsync(List<InvoiceItem> items, bool isKleinunternehmer)

@@ -1,10 +1,12 @@
+using Kuestencode.Core.Auditing;
+
 namespace Kuestencode.Faktura.Models;
 
 /// <summary>
 /// Eine einzelne, unveränderliche Änderungsprotokoll-Zeile (GoBD). Wird ausschließlich durch
 /// <see cref="Data.FakturaDbContext.SaveChangesAsync"/> geschrieben, nie manuell.
 /// </summary>
-public class AuditLogEntry
+public class AuditLogEntry : IChainedAuditEntry
 {
     public Guid Id { get; set; }
     public string EntityName { get; set; } = string.Empty;

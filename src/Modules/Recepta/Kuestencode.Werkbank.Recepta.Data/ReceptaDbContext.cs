@@ -258,7 +258,10 @@ public class ReceptaDbContext : DbContext
     /// <summary>
     /// Hängt die gesammelten Audit-Zeilen verkettet (SHA-256-Hashkette, siehe AuditHashChain) an.
     /// Der Tip-Hash wird per SELECT...FOR UPDATE in einer eigenen Transaktion gesperrt, damit
-    /// parallele Requests die Kette nicht gabeln.
+    /// parallele Requests die Kette nicht gabeln. Ausnahme: der allererste Eintrag einer Tabelle
+    /// hat keine Vorgänger-Zeile zum Sperren — dort fängt der Unique-Index auf SequenceNumber einen
+    /// gleichzeitigen zweiten "ersten" Schreiber ab; dieser Fall wird per Retry aufgelöst (die Tabelle
+    /// ist danach nicht mehr leer, der zweite Versuch sperrt regulär die inzwischen existierende Zeile).
     /// </summary>
     private async Task AppendAuditEntriesAsync(List<PendingAuditChange> pending, CancellationToken ct)
     {
@@ -277,27 +280,43 @@ public class ReceptaDbContext : DbContext
             return;
         }
 
-        await using var transaction = await Database.BeginTransactionAsync(ct);
-        try
+        const int maxAttempts = 3;
+        for (var attempt = 1; ; attempt++)
         {
-            var tip = await AuditHashChain.GetTipLockedAsync(Database, "recepta.\"AuditLogEntries\"", ct);
-            AppendChainedEntries(pending, user, tip?.Hash ?? AuditHashChain.Genesis, (tip?.SequenceNumber ?? 0) + 1);
-            await base.SaveChangesAsync(ct);
-            await transaction.CommitAsync(ct);
-        }
-        catch
-        {
-            await transaction.RollbackAsync(ct);
-            throw;
+            await using var transaction = await Database.BeginTransactionAsync(ct);
+            try
+            {
+                var tip = await AuditHashChain.GetTipLockedAsync(Database, "recepta.\"AuditLogEntries\"", ct);
+                AppendChainedEntries(pending, user, tip?.Hash ?? AuditHashChain.Genesis, (tip?.SequenceNumber ?? 0) + 1);
+                await base.SaveChangesAsync(ct);
+                await transaction.CommitAsync(ct);
+                return;
+            }
+            catch (DbUpdateException ex) when (attempt < maxAttempts && IsUniqueSequenceNumberConflict(ex))
+            {
+                await transaction.RollbackAsync(ct);
+                foreach (var entry in ChangeTracker.Entries<AuditLogEntry>().Where(e => e.State == EntityState.Added).ToList())
+                {
+                    entry.State = EntityState.Detached;
+                }
+            }
+            catch
+            {
+                await transaction.RollbackAsync(ct);
+                throw;
+            }
         }
     }
+
+    private static bool IsUniqueSequenceNumberConflict(DbUpdateException ex) =>
+        ex.InnerException is Npgsql.PostgresException { SqlState: Npgsql.PostgresErrorCodes.UniqueViolation };
 
     private void AppendChainedEntries(List<PendingAuditChange> pending, CurrentUser user, string previousHash, long nextSequenceNumber)
     {
         foreach (var change in pending)
         {
             var entityId = AuditChangeCollector.GetEntityId(change);
-            var changedAt = DateTime.UtcNow;
+            var changedAt = AuditHashChain.TruncateToPostgresPrecision(DateTime.UtcNow);
             var hash = AuditHashChain.ComputeHash(
                 previousHash, change.EntityName, entityId, change.Action,
                 change.FieldName, change.OldValue, change.NewValue,

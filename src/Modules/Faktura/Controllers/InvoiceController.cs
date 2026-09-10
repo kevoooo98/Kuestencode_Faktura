@@ -270,6 +270,27 @@ public class InvoiceController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// Rechnet die Audit-Log-Hashkette von Genesis bis zum letzten Eintrag durch und meldet den
+    /// ersten Bruch. Das ist der eigentliche Nachweis der Unveränderbarkeit (GoBD) — ohne diesen
+    /// Endpunkt wären Hash/PreviousHash nur gespeicherte Daten ohne Beweiskraft.
+    /// </summary>
+    [HttpGet("audit-log/verify")]
+    [RequireRole(UserRole.Admin)]
+    public async Task<ActionResult<AuditChainVerificationDto>> VerifyAuditLogChain()
+    {
+        try
+        {
+            var result = await _invoiceService.VerifyAuditLogChainAsync();
+            return Ok(new AuditChainVerificationDto(result.IsValid, result.BrokenAtSequenceNumber, result.Reason));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error verifying audit log chain");
+            return StatusCode(500, "Internal server error");
+        }
+    }
+
     [HttpPost("{id}/cancel")]
     public async Task<IActionResult> Cancel(int id, [FromBody] CancelInvoiceRequest? request = null)
     {
@@ -537,6 +558,7 @@ public class InvoiceController : ControllerBase
 
 public record MarkAsPaidRequest(DateTime PaidDate);
 public record CancelInvoiceRequest(string? Reason = null);
+public record AuditChainVerificationDto(bool IsValid, long? BrokenAtSequenceNumber, string? Reason);
 public record SendInvoiceRequest(
     string? RecipientEmail = null,
     string? CustomMessage = null,

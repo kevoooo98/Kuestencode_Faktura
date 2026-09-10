@@ -1,10 +1,12 @@
+using Kuestencode.Core.Auditing;
+
 namespace Kuestencode.Werkbank.Recepta.Domain.Entities;
 
 /// <summary>
 /// Eine einzelne, unveränderliche Änderungsprotokoll-Zeile (GoBD). Wird ausschließlich durch
 /// <see cref="Data.ReceptaDbContext.SaveChangesAsync"/> geschrieben, nie manuell.
 /// </summary>
-public class AuditLogEntry
+public class AuditLogEntry : IChainedAuditEntry
 {
     public Guid Id { get; set; }
     public string EntityName { get; set; } = string.Empty;

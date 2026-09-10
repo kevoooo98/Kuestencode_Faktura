@@ -1,3 +1,4 @@
+using Kuestencode.Core.Auditing;
 using Kuestencode.Werkbank.Recepta.Controllers.Dtos;
 using Kuestencode.Werkbank.Recepta.Domain.Dtos;
 using Kuestencode.Werkbank.Recepta.Domain.Enums;
@@ -85,4 +86,10 @@ public interface IDocumentService
     /// Lädt das Änderungsprotokoll (GoBD-Audit-Log) eines Belegs, neueste zuerst.
     /// </summary>
     Task<List<AuditLogEntryDto>> GetAuditLogAsync(Guid id);
+
+    /// <summary>
+    /// Rechnet die Audit-Log-Hashkette von Genesis bis zum letzten Eintrag durch und meldet den
+    /// ersten Bruch (GoBD-Nachweis der Unveränderbarkeit).
+    /// </summary>
+    Task<AuditHashChain.ChainVerificationResult> VerifyAuditLogChainAsync();
 }

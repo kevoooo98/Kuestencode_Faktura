@@ -1,5 +1,6 @@
 using System.Globalization;
 using FluentAssertions;
+using Kuestencode.Core.Auditing;
 using Kuestencode.Faktura.Data;
 using Kuestencode.Faktura.Models;
 using Microsoft.EntityFrameworkCore;
@@ -205,5 +206,54 @@ public class FakturaDbContextAuditTests
             entry.FieldName, entry.OldValue, newValue: "manipuliert",
             entry.ChangedByUserId, entry.ChangedByUserName, entry.ChangedAt);
         manipulatedHash.Should().NotBe(entry.Hash, "ein veränderter Inhalt muss einen abweichenden Hash ergeben");
+    }
+
+    // ─── Ende-zu-Ende: VerifyChain erkennt eine reale Manipulation ─────────────
+
+    [Fact]
+    public async Task VerifyChain_UnveraenderteKette_IstGueltig()
+    {
+        await using var context = CreateContext();
+        var invoice = MakeInvoice();
+        context.Invoices.Add(invoice);
+        await context.SaveChangesAsync();
+
+        invoice.Status = InvoiceStatus.Sent;
+        await context.SaveChangesAsync();
+        invoice.Notes = "Testnotiz";
+        await context.SaveChangesAsync();
+
+        var entries = await context.AuditLogEntries.OrderBy(e => e.SequenceNumber).ToListAsync();
+        var result = AuditHashChain.VerifyChain(entries);
+
+        result.IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task VerifyChain_ZeilePerDirektemDbZugriffManipuliert_WirdAlsBruchErkannt()
+    {
+        await using var context = CreateContext();
+        var invoice = MakeInvoice();
+        context.Invoices.Add(invoice);
+        await context.SaveChangesAsync();
+
+        invoice.Status = InvoiceStatus.Sent;
+        await context.SaveChangesAsync();
+        invoice.Notes = "Testnotiz";
+        await context.SaveChangesAsync();
+
+        // Simuliert einen Betreiber mit direktem DB-Zugriff, der den Append-Only-Trigger umgangen hat
+        // (in Produktion durch den Postgres-Trigger blockiert — hier bewusst über EF direkt manipuliert,
+        // da EF InMemory keinen Trigger kennt und AuditLogEntry selbst nicht auditiert wird).
+        var zuManipulieren = await context.AuditLogEntries
+            .SingleAsync(e => e.Action == "Modified" && e.FieldName == "Status");
+        zuManipulieren.NewValue = "Cancelled";
+        await context.SaveChangesAsync();
+
+        var entries = await context.AuditLogEntries.OrderBy(e => e.SequenceNumber).ToListAsync();
+        var result = AuditHashChain.VerifyChain(entries);
+
+        result.IsValid.Should().BeFalse();
+        result.BrokenAtSequenceNumber.Should().Be(zuManipulieren.SequenceNumber);
     }
 }

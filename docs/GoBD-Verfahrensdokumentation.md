@@ -81,6 +81,12 @@ Ein Interceptor auf Anwendungsebene schützt nur den Weg über die App — wer d
 
 Zeilen aus der Zeit vor Einführung der Hashkette (Migration `AddAuditLogHashChain`) sind mit dem Platzhalter-Hash `Genesis` (64 Nullen) markiert und damit als "vor Beginn der Kette" erkennbar, nicht als Teil eines verifizierten Verlaufs.
 
+**Verifikation**: eine gespeicherte Hashkette ist erst dann ein Nachweis, wenn sie tatsächlich nachgerechnet wird. `AuditHashChain.VerifyChain` läuft die komplette Kette von Genesis bis zur letzten Zeile durch, rechnet jeden Hash aus dem gespeicherten Inhalt neu und meldet die `SequenceNumber` der ersten Zeile, bei der entweder der Inhalt nicht mehr zum eigenen Hash passt oder der `PreviousHash` nicht mehr zum Hash der Vorgänger-Zeile passt (z. B. nach Entfernen oder Umsortieren einer Zeile). Abrufbar über:
+- `GET /api/invoice/audit-log/verify` (Faktura)
+- `GET /api/recepta/documents/audit-log/verify` (Recepta)
+
+Beide Endpunkte sind auf die Rolle Admin beschränkt und liefern `{ isValid, brokenAtSequenceNumber, reason }`.
+
 ## 6. Kontenrahmen-Historisierung und Exportnachweise (Saldo)
 
 - **Zeitversionierte Kategorie-Overrides**: `KontoMappingOverride` trägt `GueltigAb`/`GueltigBis`. Eine Änderung schließt die bisher offene Version (setzt `GueltigBis`) und legt eine neue Version ab dem gewählten Datum an — es wird nichts überschrieben. Ein partieller Unique-Index in der Datenbank stellt sicher, dass pro Kontenrahmen+Kategorie höchstens eine offene Version existiert.
@@ -113,12 +119,12 @@ Die gesetzliche Aufbewahrungsfrist für Rechnungen, Belege und Buchungsunterlage
 
 | Modul | Version |
 |---|---|
-| host | 2.12.0 |
-| faktura | 3.16.1 |
-| recepta | 2.13.1 |
-| acta | 2.6.0 |
-| offerte | 2.7.0 |
-| rapport | 2.8.0 |
-| saldo | 1.4.1 |
+| host | 2.12.1 |
+| faktura | 3.16.2 |
+| recepta | 2.13.2 |
+| acta | 2.6.1 |
+| offerte | 2.7.1 |
+| rapport | 2.8.1 |
+| saldo | 1.4.2 |
 
 Stand: 2026-09-10.

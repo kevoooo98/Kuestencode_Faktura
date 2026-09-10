@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Kuestencode.Werkbank.Host.Models;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 
@@ -38,7 +39,11 @@ public class RequireRoleAttribute : Attribute, IAuthorizationFilter
             !Enum.TryParse<UserRole>(roleClaim, out var userRole) ||
             !AllowedRoles.Contains(userRole))
         {
-            context.Result = new ForbidResult();
+            // Kein ForbidResult: das würde HttpContext.ForbidAsync() aufrufen, was einen
+            // registrierten IAuthenticationService voraussetzt. Der Host nutzt aber kein
+            // ASP.NET-Core-Authentifizierungsschema (JWT wird per eigener Middleware geparst),
+            // daher würde ForbidResult mit 500 statt 403 fehlschlagen.
+            context.Result = new StatusCodeResult(StatusCodes.Status403Forbidden);
         }
     }
 }

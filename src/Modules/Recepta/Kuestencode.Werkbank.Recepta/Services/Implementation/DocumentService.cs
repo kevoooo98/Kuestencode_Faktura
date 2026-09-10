@@ -1,4 +1,5 @@
 using System.Globalization;
+using Kuestencode.Core.Auditing;
 using Kuestencode.Werkbank.Recepta.Controllers.Dtos;
 using Kuestencode.Werkbank.Recepta.Data;
 using Kuestencode.Werkbank.Recepta.Data.Repositories;
@@ -573,6 +574,15 @@ public class DocumentService : IDocumentService
                 ChangedAt = a.ChangedAt
             })
             .ToListAsync();
+    }
+
+    public async Task<AuditHashChain.ChainVerificationResult> VerifyAuditLogChainAsync()
+    {
+        var entries = await _context.AuditLogEntries
+            .OrderBy(a => a.SequenceNumber)
+            .ToListAsync();
+
+        return AuditHashChain.VerifyChain(entries);
     }
 
     private static DocumentDto MapToDto(Document document)

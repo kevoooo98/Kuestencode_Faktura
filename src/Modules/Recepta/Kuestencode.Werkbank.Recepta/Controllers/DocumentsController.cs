@@ -117,6 +117,19 @@ public class DocumentsController : ControllerBase
     }
 
     /// <summary>
+    /// Rechnet die Audit-Log-Hashkette von Genesis bis zum letzten Eintrag durch und meldet den
+    /// ersten Bruch. Das ist der eigentliche Nachweis der Unveränderbarkeit (GoBD) — ohne diesen
+    /// Endpunkt wären Hash/PreviousHash nur gespeicherte Daten ohne Beweiskraft.
+    /// </summary>
+    [HttpGet("audit-log/verify")]
+    [RequireRole(UserRole.Admin)]
+    public async Task<ActionResult<AuditChainVerificationDto>> VerifyAuditLogChain()
+    {
+        var result = await _documentService.VerifyAuditLogChainAsync();
+        return Ok(new AuditChainVerificationDto(result.IsValid, result.BrokenAtSequenceNumber, result.Reason));
+    }
+
+    /// <summary>
     /// Erstellt einen neuen Beleg.
     /// </summary>
     [HttpPost]
@@ -522,3 +535,5 @@ public class DocumentsController : ControllerBase
         }
     }
 }
+
+public record AuditChainVerificationDto(bool IsValid, long? BrokenAtSequenceNumber, string? Reason);
