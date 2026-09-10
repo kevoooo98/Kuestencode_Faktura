@@ -32,6 +32,18 @@ public class KontoMappingOverride
     [MaxLength(10)]
     public string KontoNummer { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Erster Tag, ab dem dieser Override gilt.
+    /// </summary>
+    public DateOnly GueltigAb { get; set; }
+
+    /// <summary>
+    /// Letzter Tag, an dem dieser Override galt. Null = aktuell offen/aktiv.
+    /// Wird beim Setzen eines neuen Overrides für dieselbe Kategorie geschlossen,
+    /// damit bereits exportierte Zeiträume rückwirkend unverändert bleiben.
+    /// </summary>
+    public DateOnly? GueltigBis { get; set; }
+
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 }

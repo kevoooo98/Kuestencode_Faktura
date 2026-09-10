@@ -149,6 +149,7 @@ public class ProgramApi
         app.UseStaticFiles();
         app.UseModuleHealthMonitor();
         app.UseRouting();
+        app.UseMiddleware<Kuestencode.Shared.UI.Auth.JwtUserContextMiddleware>();
         app.UseAuthorization();
         app.MapRazorPages();
         app.MapControllers();

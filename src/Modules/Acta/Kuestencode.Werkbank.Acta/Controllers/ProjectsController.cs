@@ -1,4 +1,6 @@
 using Kuestencode.Shared.Contracts.Acta;
+using Kuestencode.Shared.Contracts.Host;
+using Kuestencode.Shared.UI.Auth;
 using Kuestencode.Werkbank.Acta.Controllers.Dtos;
 using Kuestencode.Werkbank.Acta.Domain.Dtos;
 using Kuestencode.Werkbank.Acta.Domain.Entities;
@@ -27,6 +29,7 @@ public class ProjectsController : ControllerBase
     /// Lädt alle Projekte mit optionalem Filter.
     /// </summary>
     [HttpGet]
+    [RequireRole(UserRole.Admin, UserRole.Buero, UserRole.Mitarbeiter)]
     public async Task<ActionResult<List<ProjectDto>>> GetAll(
         [FromQuery] string? status = null,
         [FromQuery] int? customerId = null)
@@ -48,6 +51,7 @@ public class ProjectsController : ControllerBase
     /// Lädt ein Projekt anhand der ID.
     /// </summary>
     [HttpGet("{id:guid}")]
+    [RequireRole(UserRole.Admin, UserRole.Buero, UserRole.Mitarbeiter)]
     public async Task<ActionResult<ProjectDto>> GetById(Guid id)
     {
         var project = await _projectService.GetByIdAsync(id);
@@ -63,6 +67,7 @@ public class ProjectsController : ControllerBase
     /// Erstellt ein neues Projekt.
     /// </summary>
     [HttpPost]
+    [RequireRole(UserRole.Admin, UserRole.Buero)]
     public async Task<ActionResult<ProjectDto>> Create([FromBody] CreateProjectRequest request)
     {
         try
@@ -94,6 +99,7 @@ public class ProjectsController : ControllerBase
     /// Aktualisiert ein Projekt.
     /// </summary>
     [HttpPut("{id:guid}")]
+    [RequireRole(UserRole.Admin, UserRole.Buero)]
     public async Task<ActionResult<ProjectDto>> Update(Guid id, [FromBody] UpdateProjectRequest request)
     {
         try
@@ -128,6 +134,7 @@ public class ProjectsController : ControllerBase
     /// Ändert den Status eines Projekts.
     /// </summary>
     [HttpPost("{id:guid}/status")]
+    [RequireRole(UserRole.Admin, UserRole.Buero)]
     public async Task<ActionResult<ProjectDto>> ChangeStatus(Guid id, [FromBody] ChangeStatusRequest request)
     {
         try
@@ -154,6 +161,7 @@ public class ProjectsController : ControllerBase
     /// Löscht ein Projekt (nur bei Status Draft).
     /// </summary>
     [HttpDelete("{id:guid}")]
+    [RequireRole(UserRole.Admin, UserRole.Buero)]
     public async Task<IActionResult> Delete(Guid id)
     {
         try
@@ -175,6 +183,7 @@ public class ProjectsController : ControllerBase
     /// Lädt eine Projektzusammenfassung mit Daten aus Rapport und Faktura.
     /// </summary>
     [HttpGet("{id:guid}/summary")]
+    [RequireRole(UserRole.Admin, UserRole.Buero, UserRole.Mitarbeiter)]
     public async Task<ActionResult<ProjectSummaryDto>> GetSummary(Guid id)
     {
         var project = await _projectService.GetByIdAsync(id);
@@ -205,6 +214,7 @@ public class ProjectsController : ControllerBase
     /// Weist automatisch ExternalIds zu, falls noch nicht vorhanden.
     /// </summary>
     [HttpGet("external")]
+    [RequireRole(UserRole.Admin, UserRole.Buero, UserRole.Mitarbeiter)]
     public async Task<ActionResult<List<ActaProjectDto>>> GetExternalProjects()
     {
         await _projectService.EnsureExternalIdsAsync();
@@ -235,6 +245,7 @@ public class ProjectsController : ControllerBase
     /// Liefert ein Projekt anhand der ExternalId im leichtgewichtigen Format.
     /// </summary>
     [HttpGet("external/{externalId:int}")]
+    [RequireRole(UserRole.Admin, UserRole.Buero, UserRole.Mitarbeiter)]
     public async Task<ActionResult<ActaProjectDto>> GetExternalProject(int externalId)
     {
         var projects = await _projectService.GetAllAsync();

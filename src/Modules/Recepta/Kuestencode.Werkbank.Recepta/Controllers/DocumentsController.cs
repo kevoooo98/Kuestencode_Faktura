@@ -5,12 +5,15 @@ using Kuestencode.Werkbank.Recepta.Domain.Enums;
 using Kuestencode.Werkbank.Recepta.Services;
 using Kuestencode.Werkbank.Recepta.Services.Interfaces;
 using Kuestencode.Shared.Contracts.Recepta;
+using Kuestencode.Shared.Contracts.Host;
+using Kuestencode.Shared.UI.Auth;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Kuestencode.Werkbank.Recepta.Controllers;
 
 [ApiController]
 [Route("api/recepta/documents")]
+[RequireRole(UserRole.Admin, UserRole.Buero)]
 public class DocumentsController : ControllerBase
 {
     private readonly IDocumentService _documentService;
@@ -101,6 +104,16 @@ public class DocumentsController : ControllerBase
         }
 
         return Ok(document);
+    }
+
+    /// <summary>
+    /// Lädt das Änderungsprotokoll (GoBD-Audit-Log) eines Belegs.
+    /// </summary>
+    [HttpGet("{id:guid}/audit-log")]
+    public async Task<ActionResult<List<AuditLogEntryDto>>> GetAuditLog(Guid id)
+    {
+        var entries = await _documentService.GetAuditLogAsync(id);
+        return Ok(entries);
     }
 
     /// <summary>

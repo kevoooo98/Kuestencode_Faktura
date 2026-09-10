@@ -17,6 +17,7 @@ public class EmailService : IEmailService
     private readonly IHostApiClient _hostApiClient;
     private readonly IEmailMessageBuilder _messageBuilder;
     private readonly IEmailEngine _emailEngine;
+    private readonly IPdfGeneratorService _pdfGeneratorService;
     private readonly ILogger<EmailService> _logger;
 
     public EmailService(
@@ -24,12 +25,14 @@ public class EmailService : IEmailService
         IHostApiClient hostApiClient,
         IEmailMessageBuilder messageBuilder,
         IEmailEngine emailEngine,
+        IPdfGeneratorService pdfGeneratorService,
         ILogger<EmailService> logger)
     {
         _invoiceRepository = invoiceRepository;
         _hostApiClient = hostApiClient;
         _messageBuilder = messageBuilder;
         _emailEngine = emailEngine;
+        _pdfGeneratorService = pdfGeneratorService;
         _logger = logger;
     }
 
@@ -117,6 +120,14 @@ public class EmailService : IEmailService
 
             // Update invoice with email tracking
             await UpdateInvoiceAfterSendAsync(invoice, recipientEmail, ccEmails, bccEmails);
+
+            // Rechnung erst NACH erfolgreichem Versand unveränderlich einfrieren (GoBD) — bei einem
+            // fehlgeschlagenen Sendeversuch bleibt der Entwurf frei editierbar, kein verwaister Snapshot.
+            // Idempotent: ein Resend verschickt danach immer exakt dasselbe PDF wie beim ersten Versand.
+            if (format is EmailAttachmentFormat.NormalPdf or EmailAttachmentFormat.XRechnungXmlAndPdf)
+            {
+                await _pdfGeneratorService.FreezeSnapshotAsync(invoiceId);
+            }
 
             _logger.LogInformation(
                 "Rechnung {InvoiceNumber} erfolgreich an {Email} versendet (Format: {Format})",

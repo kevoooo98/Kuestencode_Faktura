@@ -49,12 +49,12 @@ public class KontoMappingService : IKontoMappingService
             : ustSatz switch { 19 => "8400", 7 => "8300", _ => "8120" };
     }
 
-    public async Task<string> GetAusgabenKontoAsync(string kategorie)
+    public async Task<string> GetAusgabenKontoAsync(string kategorie, DateOnly? asOfDate = null)
     {
         var kontenrahmen = await GetKontenrahmenAsync();
 
         // 1. Override prüfen (hat Vorrang)
-        var overr = await _overrideRepo.GetByKategorieAsync(kontenrahmen, kategorie);
+        var overr = await _overrideRepo.GetByKategorieAsync(kontenrahmen, kategorie, asOfDate ?? DateOnly.FromDateTime(DateTime.UtcNow));
         if (overr != null) return overr.KontoNummer;
 
         // 2. Standard-Mapping
@@ -100,14 +100,15 @@ public class KontoMappingService : IKontoMappingService
         if (!await _kontoRepo.ExistsAsync(kontenrahmen, kontoNummer))
             throw new InvalidOperationException($"Konto {kontoNummer} nicht im Kontenrahmen {kontenrahmen} gefunden.");
 
-        var overr = await _overrideRepo.UpsertAsync(kontenrahmen, kategorie, kontoNummer);
+        var heute = DateOnly.FromDateTime(DateTime.UtcNow);
+        var overr = await _overrideRepo.SetOverrideAsync(kontenrahmen, kategorie, kontoNummer, heute);
         return MapToDto(overr);
     }
 
     public async Task ResetMappingAsync(string kategorie)
     {
         var kontenrahmen = await GetKontenrahmenAsync();
-        await _overrideRepo.DeleteAsync(kontenrahmen, kategorie);
+        await _overrideRepo.DeleteAsync(kontenrahmen, kategorie, DateOnly.FromDateTime(DateTime.UtcNow));
     }
 
     public async Task<List<KontoMappingOverrideDto>> GetOverridesAsync()
@@ -162,6 +163,8 @@ public class KontoMappingService : IKontoMappingService
         Kategorie = o.Kategorie,
         KontoNummer = o.KontoNummer,
         KontoBezeichnung = string.Empty,
+        GueltigAb = o.GueltigAb,
+        GueltigBis = o.GueltigBis,
         CreatedAt = o.CreatedAt,
         UpdatedAt = o.UpdatedAt
     };

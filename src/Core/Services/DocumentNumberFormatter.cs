@@ -21,7 +21,23 @@ public static class DocumentNumberFormatter
     public static string GenerateNext(string format, DateTime referenceDate, IEnumerable<string> existingNumbers)
     {
         var matchRegex = BuildMatchRegex(format, referenceDate, out var sequenceLength);
+        var lastNumber = GetLastSequenceNumber(matchRegex, existingNumbers);
+        return Render(format, referenceDate, lastNumber + 1, sequenceLength);
+    }
 
+    /// <summary>
+    /// Ermittelt die höchste bereits vergebene laufende Nummer für das Format/den Zeitraum,
+    /// ohne sie zu inkrementieren. Dient als einmaliger Startwert für
+    /// <see cref="NumberSequenceService"/>, wenn für einen Nummernkreis noch kein Zähler existiert.
+    /// </summary>
+    public static long GetLastSequenceNumber(string format, DateTime referenceDate, IEnumerable<string> existingNumbers)
+    {
+        var matchRegex = BuildMatchRegex(format, referenceDate, out _);
+        return GetLastSequenceNumber(matchRegex, existingNumbers);
+    }
+
+    private static long GetLastSequenceNumber(Regex matchRegex, IEnumerable<string> existingNumbers)
+    {
         long lastNumber = 0;
         foreach (var number in existingNumbers)
         {
@@ -31,8 +47,7 @@ public static class DocumentNumberFormatter
                 lastNumber = seq;
             }
         }
-
-        return Render(format, referenceDate, lastNumber + 1, sequenceLength);
+        return lastNumber;
     }
 
     /// <summary>
@@ -68,6 +83,16 @@ public static class DocumentNumberFormatter
         }
 
         return (prefix.ToString(), suffix.ToString(), sequenceLength);
+    }
+
+    /// <summary>
+    /// Rendert eine bereits bekannte, fortlaufende Nummer (z.B. aus <see cref="NumberSequenceService"/>)
+    /// in das gegebene Format, ohne bestehende Nummern zu scannen.
+    /// </summary>
+    public static string Format(string format, DateTime referenceDate, long sequenceNumber)
+    {
+        var (_, _, sequenceLength) = SplitAroundSequence(format, referenceDate);
+        return Render(format, referenceDate, sequenceNumber, sequenceLength);
     }
 
     private static Regex BuildMatchRegex(string format, DateTime referenceDate, out int sequenceLength)

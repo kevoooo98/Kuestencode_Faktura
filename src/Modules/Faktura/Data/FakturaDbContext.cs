@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Kuestencode.Core.Auditing;
+using Kuestencode.Core.Auth;
 using Kuestencode.Faktura.Models;
 
 namespace Kuestencode.Faktura.Data;
@@ -10,9 +12,35 @@ namespace Kuestencode.Faktura.Data;
 /// </summary>
 public class FakturaDbContext : DbContext
 {
-    public FakturaDbContext(DbContextOptions<FakturaDbContext> options)
+    private readonly ICurrentUserAccessor? _currentUserAccessor;
+
+    /// <summary>
+    /// Entity-Typen und deren Felder, für die Änderungen im Audit-Log protokolliert werden
+    /// (GoBD). <see cref="AuditChangeCollector"/> ignoriert alle anderen Entities/Felder.
+    /// </summary>
+    private static readonly Dictionary<Type, AuditedEntityConfig> AuditedProperties = new()
+    {
+        [typeof(Invoice)] = new AuditedEntityConfig(new[]
+        {
+            nameof(Invoice.Status), nameof(Invoice.InvoiceDate), nameof(Invoice.DueDate),
+            nameof(Invoice.Notes), nameof(Invoice.CustomerId), nameof(Invoice.DiscountType),
+            nameof(Invoice.DiscountValue), nameof(Invoice.IsReverseCharge),
+            nameof(Invoice.CancelledAt), nameof(Invoice.CancellationReason)
+        }),
+        // Zahlungen werden nie geändert, nur angelegt/gelöscht — DetailedAddDelete sorgt dafür,
+        // dass der Betrag im Audit-Log sichtbar bleibt statt einer leeren "Created"-Zeile.
+        // ParentIdProperty/-EntityName ordnen den Eintrag der Rechnung zu, nicht der Zahlung selbst.
+        [typeof(InvoicePayment)] = new AuditedEntityConfig(
+            new[] { nameof(InvoicePayment.Amount), nameof(InvoicePayment.PaymentDate), nameof(InvoicePayment.Notes) },
+            ParentIdProperty: nameof(InvoicePayment.InvoiceId),
+            ParentEntityName: nameof(Invoice),
+            DetailedAddDelete: true)
+    };
+
+    public FakturaDbContext(DbContextOptions<FakturaDbContext> options, ICurrentUserAccessor? currentUserAccessor = null)
         : base(options)
     {
+        _currentUserAccessor = currentUserAccessor;
     }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
@@ -28,6 +56,8 @@ public class FakturaDbContext : DbContext
     public DbSet<DownPayment> DownPayments { get; set; } = null!;
     public DbSet<InvoiceAttachment> InvoiceAttachments { get; set; } = null!;
     public DbSet<InvoicePayment> InvoicePayments { get; set; } = null!;
+    public DbSet<NumberSequence> NumberSequences { get; set; } = null!;
+    public DbSet<AuditLogEntry> AuditLogEntries { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -126,18 +156,80 @@ public class FakturaDbContext : DbContext
             entity.Property(e => e.Data).IsRequired();
             entity.Property(e => e.UploadedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
         });
+
+        // NumberSequence Configuration
+        modelBuilder.Entity<NumberSequence>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.SequenceKey).HasMaxLength(100).IsRequired();
+            entity.HasIndex(e => e.SequenceKey).IsUnique();
+        });
+
+        // AuditLogEntry Configuration
+        modelBuilder.Entity<AuditLogEntry>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.EntityName).HasMaxLength(100).IsRequired();
+            entity.Property(e => e.EntityId).HasMaxLength(50).IsRequired();
+            entity.Property(e => e.Action).HasMaxLength(20).IsRequired();
+            entity.Property(e => e.FieldName).HasMaxLength(100);
+            entity.Property(e => e.ChangedByUserName).HasMaxLength(200).IsRequired();
+            entity.HasIndex(e => new { e.EntityName, e.EntityId });
+        });
     }
 
     public override int SaveChanges()
     {
         UpdateTimestamps();
-        return base.SaveChanges();
+        var pending = AuditChangeCollector.CapturePending(ChangeTracker, AuditedProperties);
+
+        var result = base.SaveChanges();
+
+        if (pending.Count > 0)
+        {
+            AppendAuditEntries(pending);
+            base.SaveChanges();
+        }
+
+        return result;
     }
 
-    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
         UpdateTimestamps();
-        return base.SaveChangesAsync(cancellationToken);
+        var pending = AuditChangeCollector.CapturePending(ChangeTracker, AuditedProperties);
+
+        var result = await base.SaveChangesAsync(cancellationToken);
+
+        if (pending.Count > 0)
+        {
+            AppendAuditEntries(pending);
+            await base.SaveChangesAsync(cancellationToken);
+        }
+
+        return result;
+    }
+
+    private void AppendAuditEntries(List<PendingAuditChange> pending)
+    {
+        var user = _currentUserAccessor?.Get() ?? new CurrentUser(Guid.Empty, "System");
+
+        foreach (var change in pending)
+        {
+            AuditLogEntries.Add(new AuditLogEntry
+            {
+                Id = Guid.NewGuid(),
+                EntityName = change.EntityName,
+                EntityId = AuditChangeCollector.GetEntityId(change),
+                Action = change.Action,
+                FieldName = change.FieldName,
+                OldValue = change.OldValue,
+                NewValue = change.NewValue,
+                ChangedByUserId = user.UserId,
+                ChangedByUserName = user.UserName,
+                ChangedAt = DateTime.UtcNow
+            });
+        }
     }
 
     private void UpdateTimestamps()

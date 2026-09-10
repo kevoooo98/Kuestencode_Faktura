@@ -73,8 +73,20 @@ public class EmailAttachmentBuilder : IEmailAttachmentBuilder
     private async Task<EmailAttachment> BuildNormalPdfAsync(int invoiceId, string invoiceNumber)
     {
         var sw = Stopwatch.StartNew();
+        var pdfBytes = await _pdfGenerator.TryGetFrozenSnapshotAsync(invoiceId);
+        if (pdfBytes != null)
+        {
+            _logger.LogInformation("EmailAttachmentBuilder: using frozen snapshot (InvoiceId={InvoiceId})", invoiceId);
+            return new EmailAttachment
+            {
+                FileName = $"Rechnung_{invoiceNumber}.pdf",
+                Content = pdfBytes,
+                ContentType = "application/pdf"
+            };
+        }
+
         _logger.LogInformation("EmailAttachmentBuilder: generating PDF (InvoiceId={InvoiceId})", invoiceId);
-        var pdfBytes = await _pdfGenerator.GenerateInvoicePdfAsync(invoiceId);
+        pdfBytes = await _pdfGenerator.GenerateInvoicePdfAsync(invoiceId);
         _logger.LogInformation(
             "EmailAttachmentBuilder: PDF ready (InvoiceId={InvoiceId}, Size={Size}, Ms={Ms})",
             invoiceId,
@@ -133,7 +145,7 @@ public class EmailAttachmentBuilder : IEmailAttachmentBuilder
         _logger.LogInformation("EmailAttachmentBuilder: loading custom attachments (InvoiceId={InvoiceId})", invoiceId);
         var attachments = await _dbContext.InvoiceAttachments
             .AsNoTracking()
-            .Where(a => a.InvoiceId == invoiceId)
+            .Where(a => a.InvoiceId == invoiceId && !a.IsFrozenSnapshot)
             .ToListAsync();
 
         return attachments

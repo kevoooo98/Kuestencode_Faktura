@@ -132,3 +132,16 @@ public class DocumentFileDto
     public long FileSize { get; set; }
     public DateTime CreatedAt { get; set; }
 }
+
+/// <summary>
+/// Eine Änderungsprotokoll-Zeile für die Anzeige im Frontend.
+/// </summary>
+public class AuditLogEntryDto
+{
+    public string Action { get; set; } = string.Empty;
+    public string? FieldName { get; set; }
+    public string? OldValue { get; set; }
+    public string? NewValue { get; set; }
+    public string ChangedByUserName { get; set; } = string.Empty;
+    public DateTime ChangedAt { get; set; }
+}

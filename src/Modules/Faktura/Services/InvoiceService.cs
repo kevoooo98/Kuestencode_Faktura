@@ -1,5 +1,8 @@
+using Kuestencode.Faktura.Data;
 using Kuestencode.Faktura.Data.Repositories;
 using Kuestencode.Faktura.Models;
+using Kuestencode.Shared.Contracts.Faktura;
+using Microsoft.EntityFrameworkCore;
 
 namespace Kuestencode.Faktura.Services;
 
@@ -15,6 +18,8 @@ public interface IInvoiceService
     Task<Invoice> CreateCreditNoteFromInvoiceAsync(int sourceInvoiceId, DateTime creditNoteDate);
     Task UpdateAsync(Invoice invoice);
     Task DeleteAsync(int id);
+    Task CancelAsync(int id, string? reason);
+    Task<List<AuditLogEntryDto>> GetAuditLogAsync(int id);
     Task<string> GenerateInvoiceNumberAsync();
     Task<(string Prefix, string Suffix, int SequenceLength)> GetInvoiceNumberFormatPartsAsync();
     Task<string> GenerateCreditNoteNumberAsync();
@@ -29,15 +34,21 @@ public class InvoiceService : IInvoiceService
 {
     private readonly IInvoiceRepository _invoiceRepository;
     private readonly IInvoicePaymentService _paymentService;
+    private readonly IPdfGeneratorService _pdfGeneratorService;
+    private readonly FakturaDbContext _context;
     private readonly ILogger<InvoiceService> _logger;
 
     public InvoiceService(
         IInvoiceRepository invoiceRepository,
         IInvoicePaymentService paymentService,
+        IPdfGeneratorService pdfGeneratorService,
+        FakturaDbContext context,
         ILogger<InvoiceService> logger)
     {
         _invoiceRepository = invoiceRepository;
         _paymentService = paymentService;
+        _pdfGeneratorService = pdfGeneratorService;
+        _context = context;
         _logger = logger;
     }
 
@@ -204,6 +215,12 @@ public class InvoiceService : IInvoiceService
                 throw new InvalidOperationException($"Rechnung mit ID {invoice.Id} wurde nicht gefunden.");
             }
 
+            if (existingInvoice.IsLocked)
+            {
+                throw new InvalidOperationException(
+                    $"Rechnung {existingInvoice.InvoiceNumber} kann nicht mehr bearbeitet werden (Status: {existingInvoice.Status}). Korrektur nur über Gutschrift oder Storno.");
+            }
+
             // Update position numbers
             for (int i = 0; i < invoice.Items.Count; i++)
             {
@@ -229,11 +246,51 @@ public class InvoiceService : IInvoiceService
                 throw new InvalidOperationException($"Rechnung mit ID {id} wurde nicht gefunden.");
             }
 
+            if (invoice.IsLocked)
+            {
+                throw new InvalidOperationException(
+                    $"Rechnung {invoice.InvoiceNumber} kann nicht gelöscht werden (Status: {invoice.Status}). Nummer bleibt aus GoBD-Gründen erhalten — Korrektur über Gutschrift oder Storno.");
+            }
+
             await _invoiceRepository.DeleteAsync(invoice);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Fehler beim Löschen der Rechnung mit ID {InvoiceId}", id);
+            throw;
+        }
+    }
+
+    public async Task CancelAsync(int id, string? reason)
+    {
+        try
+        {
+            var invoice = await _invoiceRepository.GetByIdAsync(id);
+            if (invoice == null)
+            {
+                throw new InvalidOperationException($"Rechnung mit ID {id} wurde nicht gefunden.");
+            }
+
+            if (invoice.Status == InvoiceStatus.Draft)
+            {
+                throw new InvalidOperationException("Entwürfe werden gelöscht, nicht storniert.");
+            }
+
+            if (invoice.Status == InvoiceStatus.Cancelled)
+            {
+                throw new InvalidOperationException($"Rechnung {invoice.InvoiceNumber} ist bereits storniert.");
+            }
+
+            invoice.Status = InvoiceStatus.Cancelled;
+            invoice.CancelledAt = DateTime.UtcNow;
+            invoice.CancellationReason = reason;
+
+            await _invoiceRepository.UpdateAsync(invoice);
+            _logger.LogInformation("Rechnung {InvoiceNumber} storniert", invoice.InvoiceNumber);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Fehler beim Stornieren der Rechnung mit ID {InvoiceId}", id);
             throw;
         }
     }
@@ -334,6 +391,10 @@ public class InvoiceService : IInvoiceService
             }
 
             await _invoiceRepository.UpdateAsync(invoice);
+
+            // Rechnung ab dem ersten Verlassen des Systems (Druck) unveränderlich einfrieren (GoBD)
+            await _pdfGeneratorService.FreezeSnapshotAsync(id);
+
             _logger.LogInformation("Rechnung {InvoiceNumber} als gedruckt markiert (Druckzähler: {PrintCount})",
                 invoice.InvoiceNumber, invoice.PrintCount);
         }
@@ -348,6 +409,24 @@ public class InvoiceService : IInvoiceService
     {
         var total = items.Sum(item => item.TotalNet);
         return Task.FromResult(total);
+    }
+
+    public async Task<List<AuditLogEntryDto>> GetAuditLogAsync(int id)
+    {
+        var entityId = id.ToString();
+        return await _context.AuditLogEntries
+            .Where(a => a.EntityName == nameof(Invoice) && a.EntityId == entityId)
+            .OrderByDescending(a => a.ChangedAt)
+            .Select(a => new AuditLogEntryDto
+            {
+                Action = a.Action,
+                FieldName = a.FieldName,
+                OldValue = a.OldValue,
+                NewValue = a.NewValue,
+                ChangedByUserName = a.ChangedByUserName,
+                ChangedAt = a.ChangedAt
+            })
+            .ToListAsync();
     }
 
     public Task<decimal> CalculateTotalGrossAsync(List<InvoiceItem> items, bool isKleinunternehmer)

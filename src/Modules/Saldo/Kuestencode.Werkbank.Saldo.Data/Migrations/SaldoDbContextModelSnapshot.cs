@@ -174,6 +174,12 @@ namespace Kuestencode.Werkbank.Saldo.Data.Migrations
                         .HasMaxLength(10)
                         .HasColumnType("character varying(10)");
 
+                    b.Property<DateOnly>("GueltigAb")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly?>("GueltigBis")
+                        .HasColumnType("date");
+
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
@@ -187,11 +193,42 @@ namespace Kuestencode.Werkbank.Saldo.Data.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("Kontenrahmen", "Kategorie")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("\"GueltigBis\" IS NULL");
 
                     b.HasIndex("Kontenrahmen", "KontoNummer");
 
                     b.ToTable("KontoMappingOverrides", "saldo");
+                });
+
+            modelBuilder.Entity("Kuestencode.Werkbank.Saldo.Domain.Entities.PeriodClose", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("ClosedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<Guid>("ClosedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ExportLogId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateOnly>("ZeitraumBis")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly>("ZeitraumVon")
+                        .HasColumnType("date");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ZeitraumVon", "ZeitraumBis");
+
+                    b.ToTable("PeriodCloses", "saldo");
                 });
 
             modelBuilder.Entity("Kuestencode.Werkbank.Saldo.Domain.Entities.SaldoSettings", b =>

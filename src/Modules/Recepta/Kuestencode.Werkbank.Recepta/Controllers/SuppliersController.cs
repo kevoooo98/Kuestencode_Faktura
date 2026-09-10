@@ -2,12 +2,15 @@ using Kuestencode.Werkbank.Recepta.Controllers.Dtos;
 using Kuestencode.Werkbank.Recepta.Domain.Dtos;
 using Kuestencode.Werkbank.Recepta.Domain.Enums;
 using Kuestencode.Werkbank.Recepta.Services;
+using Kuestencode.Shared.Contracts.Host;
+using Kuestencode.Shared.UI.Auth;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Kuestencode.Werkbank.Recepta.Controllers;
 
 [ApiController]
 [Route("api/recepta/suppliers")]
+[RequireRole(UserRole.Admin, UserRole.Buero)]
 public class SuppliersController : ControllerBase
 {
     private readonly ISupplierService _supplierService;

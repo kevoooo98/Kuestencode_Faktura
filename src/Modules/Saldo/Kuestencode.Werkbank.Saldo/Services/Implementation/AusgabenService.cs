@@ -12,6 +12,7 @@ public class AusgabenService : IAusgabenService
 {
     private readonly IReceptaDataService _receptaData;
     private readonly IKategorieKontoMappingRepository _mappingRepo;
+    private readonly IKontoMappingOverrideRepository _overrideRepo;
     private readonly IKontoRepository _kontoRepo;
     private readonly ISaldoSettingsRepository _settingsRepo;
     private readonly ILogger<AusgabenService> _logger;
@@ -19,12 +20,14 @@ public class AusgabenService : IAusgabenService
     public AusgabenService(
         IReceptaDataService receptaData,
         IKategorieKontoMappingRepository mappingRepo,
+        IKontoMappingOverrideRepository overrideRepo,
         IKontoRepository kontoRepo,
         ISaldoSettingsRepository settingsRepo,
         ILogger<AusgabenService> logger)
     {
         _receptaData = receptaData;
         _mappingRepo = mappingRepo;
+        _overrideRepo = overrideRepo;
         _kontoRepo = kontoRepo;
         _settingsRepo = settingsRepo;
         _logger = logger;
@@ -61,9 +64,11 @@ public class AusgabenService : IAusgabenService
                     ? $"{payment.DocumentNumber}/{n + 1}"
                     : payment.DocumentNumber;
 
+                var overr = await _overrideRepo.GetByKategorieAsync(kontenrahmen, payment.Category, payment.PaymentDate);
                 var mapping = mappings.FirstOrDefault(m => m.ReceiptaKategorie == payment.Category);
-                var konto = mapping != null
-                    ? konten.FirstOrDefault(k => k.KontoNummer == mapping.KontoNummer)
+                var kontoNummer = overr?.KontoNummer ?? mapping?.KontoNummer;
+                var konto = kontoNummer != null
+                    ? konten.FirstOrDefault(k => k.KontoNummer == kontoNummer)
                     : null;
 
                 buchungen.Add(new BuchungDto
@@ -79,7 +84,7 @@ public class AusgabenService : IAusgabenService
                     Brutto = payment.AmountGross * ratio * sign,
                     UstSatz = payment.TaxRate,
                     Kategorie = payment.Category,
-                    KontoNummer = konto?.KontoNummer ?? mapping?.KontoNummer ?? fallbackKonto,
+                    KontoNummer = konto?.KontoNummer ?? kontoNummer ?? fallbackKonto,
                     KontoBezeichnung = konto?.KontoBezeichnung ?? payment.Category,
                     Typ = sign > 0 ? BuchungsTyp.Ausgabe : BuchungsTyp.Einnahme
                 });

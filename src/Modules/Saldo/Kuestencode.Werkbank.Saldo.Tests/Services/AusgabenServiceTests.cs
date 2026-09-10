@@ -15,14 +15,22 @@ public class AusgabenServiceTests
 {
     private readonly Mock<IReceptaDataService> _receptaData = new();
     private readonly Mock<IKategorieKontoMappingRepository> _mappingRepo = new();
+    private readonly Mock<IKontoMappingOverrideRepository> _overrideRepo = new();
     private readonly Mock<IKontoRepository> _kontoRepo = new();
     private readonly Mock<ISaldoSettingsRepository> _settingsRepo = new();
 
     private static readonly DateOnly Von = new(2026, 1, 1);
     private static readonly DateOnly Bis = new(2026, 12, 31);
 
+    public AusgabenServiceTests()
+    {
+        // Standard: kein Override aktiv, sofern ein Test nichts anderes konfiguriert.
+        _overrideRepo.Setup(r => r.GetByKategorieAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<DateOnly>()))
+            .ReturnsAsync((KontoMappingOverride?)null);
+    }
+
     private AusgabenService CreateService() =>
-        new(_receptaData.Object, _mappingRepo.Object, _kontoRepo.Object,
+        new(_receptaData.Object, _mappingRepo.Object, _overrideRepo.Object, _kontoRepo.Object,
             _settingsRepo.Object, NullLogger<AusgabenService>.Instance);
 
     private void SetupKontenrahmen(string kontenrahmen = "SKR03")
@@ -282,6 +290,64 @@ public class AusgabenServiceTests
 
         result[0].BelegDatum.Should().Be(new DateOnly(2026, 3, 1));
         result[0].ZahlungsDatum.Should().Be(new DateOnly(2026, 3, 25));
+    }
+
+    [Fact]
+    public async Task GetAusgaben_NutztOverrideStattStandardMapping()
+    {
+        SetupKontenrahmen();
+        _mappingRepo.Setup(r => r.GetAllAsync("SKR03"))
+            .ReturnsAsync(new List<KategorieKontoMapping>
+            {
+                new() { ReceiptaKategorie = "Büromaterial", KontoNummer = "4930", Kontenrahmen = "SKR03" }
+            });
+        _kontoRepo.Setup(r => r.GetByKontenrahmenAsync("SKR03"))
+            .ReturnsAsync(new List<Konto>
+            {
+                new() { KontoNummer = "4930", KontoBezeichnung = "Bürobedarf", KontoTyp = KontoTyp.Ausgabe },
+                new() { KontoNummer = "4950", KontoBezeichnung = "Bürobedarf (Override)", KontoTyp = KontoTyp.Ausgabe }
+            });
+        var zahlungsDatum = new DateOnly(2026, 1, 5);
+        _overrideRepo.Setup(r => r.GetByKategorieAsync("SKR03", "Büromaterial", zahlungsDatum))
+            .ReturnsAsync(new KontoMappingOverride { KontoNummer = "4950" });
+        _receptaData.Setup(s => s.GetPaymentsAsync(Von, Bis))
+            .ReturnsAsync(new List<ReceptaPaymentDto>
+            {
+                CreatePayment("Büromaterial", new DateOnly(2026, 1, 1), zahlungsDatum, 100m, 19m, 19m)
+            });
+
+        var service = CreateService();
+        var result = await service.GetAusgabenAsync(Von, Bis);
+
+        result[0].KontoNummer.Should().Be("4950");
+        result[0].KontoBezeichnung.Should().Be("Bürobedarf (Override)");
+    }
+
+    [Fact]
+    public async Task GetAusgaben_OverrideWirdZumZahlungsdatumAufgeloest_SpaetereAenderungWirktNichtRueckwirkend()
+    {
+        // Ein Override, der erst nach dem Zahlungsdatum beginnt, darf diese (bereits exportierte)
+        // Zahlung nicht rückwirkend beeinflussen.
+        SetupKontenrahmen();
+        _mappingRepo.Setup(r => r.GetAllAsync("SKR03"))
+            .ReturnsAsync(new List<KategorieKontoMapping>
+            {
+                new() { ReceiptaKategorie = "Büromaterial", KontoNummer = "4930", Kontenrahmen = "SKR03" }
+            });
+        _kontoRepo.Setup(r => r.GetByKontenrahmenAsync("SKR03")).ReturnsAsync(new List<Konto>());
+        var zahlungsDatum = new DateOnly(2026, 1, 5);
+        _overrideRepo.Setup(r => r.GetByKategorieAsync("SKR03", "Büromaterial", zahlungsDatum))
+            .ReturnsAsync((KontoMappingOverride?)null); // zum Zahlungszeitpunkt noch kein Override aktiv
+        _receptaData.Setup(s => s.GetPaymentsAsync(Von, Bis))
+            .ReturnsAsync(new List<ReceptaPaymentDto>
+            {
+                CreatePayment("Büromaterial", new DateOnly(2026, 1, 1), zahlungsDatum, 100m, 19m, 19m)
+            });
+
+        var service = CreateService();
+        var result = await service.GetAusgabenAsync(Von, Bis);
+
+        result[0].KontoNummer.Should().Be("4930"); // Standard-Mapping, nicht der spätere Override
     }
 
     // ─── GetSummeAsync ────────────────────────────────────────────────────────

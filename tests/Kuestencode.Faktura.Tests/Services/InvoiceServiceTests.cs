@@ -1,7 +1,9 @@
 using FluentAssertions;
+using Kuestencode.Faktura.Data;
 using Kuestencode.Faktura.Data.Repositories;
 using Kuestencode.Faktura.Models;
 using Kuestencode.Faktura.Services;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using Xunit;
@@ -12,11 +14,18 @@ public class InvoiceServiceTests
 {
     private readonly Mock<IInvoiceRepository> _repo = new();
     private readonly Mock<IInvoicePaymentService> _paymentService = new();
+    private readonly Mock<IPdfGeneratorService> _pdfGeneratorService = new();
+    private readonly FakturaDbContext _context;
     private readonly InvoiceService _service;
 
     public InvoiceServiceTests()
     {
-        _service = new InvoiceService(_repo.Object, _paymentService.Object, NullLogger<InvoiceService>.Instance);
+        _pdfGeneratorService.Setup(p => p.FreezeSnapshotAsync(It.IsAny<int>())).Returns(Task.CompletedTask);
+        var options = new DbContextOptionsBuilder<FakturaDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options;
+        _context = new FakturaDbContext(options);
+        _service = new InvoiceService(_repo.Object, _paymentService.Object, _pdfGeneratorService.Object, _context, NullLogger<InvoiceService>.Instance);
     }
 
     private static Invoice MakeInvoice(int id = 1, InvoiceStatus status = InvoiceStatus.Draft) =>
@@ -226,6 +235,18 @@ public class InvoiceServiceTests
         await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*99*");
     }
 
+    [Fact]
+    public async Task Update_VersendeteRechnung_WirftException()
+    {
+        var inv = MakeInvoice(1, InvoiceStatus.Sent);
+        _repo.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(inv);
+
+        var act = () => _service.UpdateAsync(MakeInvoice(1, InvoiceStatus.Sent));
+
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*nicht mehr bearbeitet werden*");
+        _repo.Verify(r => r.UpdateAsync(It.IsAny<Invoice>()), Times.Never);
+    }
+
     // ─── DeleteAsync ──────────────────────────────────────────────────────────
 
     [Fact]
@@ -248,6 +269,57 @@ public class InvoiceServiceTests
         var act = () => _service.DeleteAsync(99);
 
         await act.Should().ThrowAsync<InvalidOperationException>();
+    }
+
+    [Fact]
+    public async Task Delete_VersendeteRechnung_WirftException()
+    {
+        var inv = MakeInvoice(1, InvoiceStatus.Sent);
+        _repo.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(inv);
+
+        var act = () => _service.DeleteAsync(1);
+
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*GoBD*");
+        _repo.Verify(r => r.DeleteAsync(It.IsAny<Invoice>()), Times.Never);
+    }
+
+    // ─── CancelAsync ──────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task Cancel_VersendeteRechnung_SetztStatusUndZeitstempel()
+    {
+        var inv = MakeInvoice(1, InvoiceStatus.Sent);
+        _repo.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(inv);
+        _repo.Setup(r => r.UpdateAsync(It.IsAny<Invoice>())).Returns(Task.CompletedTask);
+
+        await _service.CancelAsync(1, "Kundenwunsch");
+
+        inv.Status.Should().Be(InvoiceStatus.Cancelled);
+        inv.CancellationReason.Should().Be("Kundenwunsch");
+        inv.CancelledAt.Should().NotBeNull();
+        _repo.Verify(r => r.UpdateAsync(inv), Times.Once);
+    }
+
+    [Fact]
+    public async Task Cancel_EntwurfsRechnung_WirftException()
+    {
+        var inv = MakeInvoice(1, InvoiceStatus.Draft);
+        _repo.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(inv);
+
+        var act = () => _service.CancelAsync(1, null);
+
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*Entwürfe*");
+    }
+
+    [Fact]
+    public async Task Cancel_BereitsStornierteRechnung_WirftException()
+    {
+        var inv = MakeInvoice(1, InvoiceStatus.Cancelled);
+        _repo.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(inv);
+
+        var act = () => _service.CancelAsync(1, null);
+
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*bereits storniert*");
     }
 
     // ─── GenerateInvoiceNumberAsync ───────────────────────────────────────────
@@ -366,6 +438,36 @@ public class InvoiceServiceTests
         var act = () => _service.MarkAsPrintedAsync(99);
 
         await act.Should().ThrowAsync<InvalidOperationException>();
+    }
+
+    // ─── GetAuditLogAsync ─────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task GetAuditLog_LiefertNurEintraegeDerAngefragtenRechnung_NeuesteZuerst()
+    {
+        _context.AuditLogEntries.AddRange(
+            new AuditLogEntry { Id = Guid.NewGuid(), EntityName = "Invoice", EntityId = "1", Action = "Modified", FieldName = "Status", ChangedByUserName = "Alice", ChangedAt = DateTime.UtcNow.AddMinutes(-5) },
+            new AuditLogEntry { Id = Guid.NewGuid(), EntityName = "Invoice", EntityId = "1", Action = "Modified", FieldName = "Notes", ChangedByUserName = "Bob", ChangedAt = DateTime.UtcNow },
+            new AuditLogEntry { Id = Guid.NewGuid(), EntityName = "Invoice", EntityId = "2", Action = "Created", ChangedByUserName = "Carol", ChangedAt = DateTime.UtcNow });
+        await _context.SaveChangesAsync();
+
+        var result = await _service.GetAuditLogAsync(1);
+
+        result.Should().HaveCount(2);
+        result[0].FieldName.Should().Be("Notes");
+        result[1].FieldName.Should().Be("Status");
+    }
+
+    [Fact]
+    public async Task MarkAsPrinted_FriertPdfSnapshotEin()
+    {
+        var inv = MakeInvoice(1, InvoiceStatus.Draft);
+        _repo.Setup(r => r.GetByIdAsync(1)).ReturnsAsync(inv);
+        _repo.Setup(r => r.UpdateAsync(It.IsAny<Invoice>())).Returns(Task.CompletedTask);
+
+        await _service.MarkAsPrintedAsync(1);
+
+        _pdfGeneratorService.Verify(p => p.FreezeSnapshotAsync(1), Times.Once);
     }
 
     // ─── CalculateTotalNetAsync ───────────────────────────────────────────────

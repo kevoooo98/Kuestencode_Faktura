@@ -1,3 +1,4 @@
+using Kuestencode.Core.Auth;
 using Kuestencode.Shared.Contracts.Host;
 using Kuestencode.Shared.UI.Auth;
 using Kuestencode.Werkbank.Saldo.Domain.Dtos;
@@ -12,11 +13,16 @@ namespace Kuestencode.Werkbank.Saldo.Controllers;
 public class DatevExportController : ControllerBase
 {
     private readonly IDatevExportService _exportService;
+    private readonly ICurrentUserAccessor _currentUserAccessor;
     private readonly ILogger<DatevExportController> _logger;
 
-    public DatevExportController(IDatevExportService exportService, ILogger<DatevExportController> logger)
+    public DatevExportController(
+        IDatevExportService exportService,
+        ICurrentUserAccessor currentUserAccessor,
+        ILogger<DatevExportController> logger)
     {
         _exportService = exportService;
+        _currentUserAccessor = currentUserAccessor;
         _logger = logger;
     }
 
@@ -32,7 +38,7 @@ public class DatevExportController : ControllerBase
         var (vonDate, bisDate) = GetDateRange(von, bis);
         try
         {
-            var bytes = await _exportService.ExportBuchungsstapelAsync(vonDate, bisDate);
+            var bytes = await _exportService.ExportBuchungsstapelAsync(vonDate, bisDate, _currentUserAccessor.Get().UserId);
             var fileName = $"EXTF_Buchungsstapel_{vonDate:yyyy}_{GetQuartal(vonDate, bisDate)}.csv";
             Response.Headers["Content-Disposition"] = $"attachment; filename=\"{fileName}\"";
             return File(bytes, "text/csv; charset=windows-1252", fileName);
@@ -56,7 +62,7 @@ public class DatevExportController : ControllerBase
         var (vonDate, bisDate) = GetDateRange(von, bis);
         try
         {
-            var bytes = await _exportService.ExportBelegeAsync(vonDate, bisDate);
+            var bytes = await _exportService.ExportBelegeAsync(vonDate, bisDate, _currentUserAccessor.Get().UserId);
             var fileName = $"Belege_{vonDate:yyyy}_{GetQuartal(vonDate, bisDate)}.zip";
             Response.Headers["Content-Disposition"] = $"attachment; filename=\"{fileName}\"";
             return File(bytes, "application/zip", fileName);

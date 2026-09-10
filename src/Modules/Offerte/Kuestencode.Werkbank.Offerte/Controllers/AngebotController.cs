@@ -1,10 +1,13 @@
 using Microsoft.AspNetCore.Mvc;
 using Kuestencode.Werkbank.Offerte.Services;
+using Kuestencode.Shared.Contracts.Host;
+using Kuestencode.Shared.UI.Auth;
 
 namespace Kuestencode.Werkbank.Offerte.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[RequireRole(UserRole.Admin, UserRole.Buero)]
 public class AngebotController : ControllerBase
 {
     private readonly IOfferteDruckService _druckService;

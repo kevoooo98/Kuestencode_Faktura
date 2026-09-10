@@ -3,12 +3,15 @@ using Kuestencode.Faktura.Models;
 using Kuestencode.Faktura.Services;
 using Kuestencode.Faktura.Services.Pdf;
 using Kuestencode.Shared.Contracts.Faktura;
+using Kuestencode.Shared.Contracts.Host;
 using Kuestencode.Shared.ApiClients;
+using Kuestencode.Shared.UI.Auth;
 
 namespace Kuestencode.Faktura.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[RequireRole(UserRole.Admin, UserRole.Buero)]
 public class InvoiceController : ControllerBase
 {
     private readonly IInvoiceService _invoiceService;
@@ -120,7 +123,8 @@ public class InvoiceController : ControllerBase
             var invoice = await _invoiceService.GetByIdAsync(id);
             if (invoice == null) return NotFound();
 
-            var pdfBytes = await _pdfGeneratorService.GenerateInvoicePdfAsync(id);
+            var pdfBytes = await _pdfGeneratorService.TryGetFrozenSnapshotAsync(id)
+                ?? await _pdfGeneratorService.GenerateInvoicePdfAsync(id);
             var mergedBytes = _pdfMergeService.MergeForPrint(pdfBytes, invoice.Attachments);
             var base64 = Convert.ToBase64String(mergedBytes);
 
@@ -221,6 +225,10 @@ public class InvoiceController : ControllerBase
             await _invoiceService.UpdateAsync(invoice);
             return NoContent();
         }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { error = ex.Message });
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error updating invoice {InvoiceId}", id);
@@ -236,9 +244,47 @@ public class InvoiceController : ControllerBase
             await _invoiceService.DeleteAsync(id);
             return NoContent();
         }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { error = ex.Message });
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error deleting invoice {InvoiceId}", id);
+            return StatusCode(500, "Internal server error");
+        }
+    }
+
+    [HttpGet("{id}/audit-log")]
+    public async Task<ActionResult<List<AuditLogEntryDto>>> GetAuditLog(int id)
+    {
+        try
+        {
+            var entries = await _invoiceService.GetAuditLogAsync(id);
+            return Ok(entries);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving audit log for invoice {InvoiceId}", id);
+            return StatusCode(500, "Internal server error");
+        }
+    }
+
+    [HttpPost("{id}/cancel")]
+    public async Task<IActionResult> Cancel(int id, [FromBody] CancelInvoiceRequest? request = null)
+    {
+        try
+        {
+            await _invoiceService.CancelAsync(id, request?.Reason);
+            return Ok(new { message = "Invoice cancelled" });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { error = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error cancelling invoice {InvoiceId}", id);
             return StatusCode(500, "Internal server error");
         }
     }
@@ -280,8 +326,9 @@ public class InvoiceController : ControllerBase
     {
         try
         {
-            var pdfBytes = await _pdfGeneratorService.GenerateInvoicePdfAsync(id);
             var invoice = await _invoiceService.GetByIdAsync(id);
+            var pdfBytes = await _pdfGeneratorService.TryGetFrozenSnapshotAsync(id)
+                ?? await _pdfGeneratorService.GenerateInvoicePdfAsync(id);
             return File(pdfBytes, "application/pdf", $"Invoice-{invoice?.InvoiceNumber ?? id.ToString()}.pdf");
         }
         catch (Exception ex)
@@ -438,6 +485,8 @@ public class InvoiceController : ControllerBase
             Notes = invoice.Notes,
             Status = invoice.Status.ToString(),
             PaidDate = invoice.PaidDate,
+            CancelledAt = invoice.CancelledAt,
+            CancellationReason = invoice.CancellationReason,
             CreatedAt = invoice.CreatedAt,
             UpdatedAt = invoice.UpdatedAt,
             EmailSentAt = invoice.EmailSentAt,
@@ -487,6 +536,7 @@ public class InvoiceController : ControllerBase
 }
 
 public record MarkAsPaidRequest(DateTime PaidDate);
+public record CancelInvoiceRequest(string? Reason = null);
 public record SendInvoiceRequest(
     string? RecipientEmail = null,
     string? CustomMessage = null,

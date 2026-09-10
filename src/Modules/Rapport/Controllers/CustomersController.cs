@@ -1,10 +1,13 @@
 using Kuestencode.Core.Interfaces;
+using Kuestencode.Shared.Contracts.Host;
+using Kuestencode.Shared.UI.Auth;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Kuestencode.Rapport.Controllers;
 
 [ApiController]
 [Route("api/rapport/customers")]
+[RequireRole(UserRole.Admin, UserRole.Buero, UserRole.Mitarbeiter)]
 public class CustomersController : ControllerBase
 {
     private readonly ICustomerService _customerService;

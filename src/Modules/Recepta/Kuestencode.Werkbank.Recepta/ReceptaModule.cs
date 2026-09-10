@@ -23,6 +23,8 @@ public static class ReceptaModule
     /// <returns>The service collection for chaining</returns>
     public static IServiceCollection AddReceptaModule(this IServiceCollection services, IConfiguration configuration)
     {
+        services.AddScoped<Kuestencode.Core.Auth.ICurrentUserAccessor, Kuestencode.Core.Auth.HttpContextCurrentUserAccessor>();
+
         // Add DbContext with PostgreSQL (Recepta-Schema)
         services.AddDbContext<ReceptaDbContext>(options =>
             options.UseNpgsql(configuration.GetConnectionString("DefaultConnection")));

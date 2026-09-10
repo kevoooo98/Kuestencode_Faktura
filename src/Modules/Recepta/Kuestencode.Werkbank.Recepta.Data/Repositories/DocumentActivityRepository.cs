@@ -12,12 +12,6 @@ public class DocumentActivityRepository : IDocumentActivityRepository
         _context = context;
     }
 
-    public async Task AddAsync(DocumentActivityLog entry)
-    {
-        await _context.DocumentActivityLogs.AddAsync(entry);
-        await _context.SaveChangesAsync();
-    }
-
     public async Task<IEnumerable<DocumentActivityLog>> GetRecentAsync(int count)
     {
         return await _context.DocumentActivityLogs

@@ -1,11 +1,14 @@
 using Kuestencode.Rapport.Services;
+using Kuestencode.Shared.Contracts.Host;
 using Kuestencode.Shared.Contracts.Rapport;
+using Kuestencode.Shared.UI.Auth;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Kuestencode.Rapport.Controllers;
 
 [ApiController]
 [Route("api/dashboard")]
+[RequireRole(UserRole.Admin, UserRole.Buero, UserRole.Mitarbeiter)]
 public class DashboardController : ControllerBase
 {
     private readonly DashboardService _dashboardService;

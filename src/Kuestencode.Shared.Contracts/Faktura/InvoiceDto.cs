@@ -14,6 +14,8 @@ public record InvoiceDto
     public string? Notes { get; init; }
     public string Status { get; init; } = "Draft";
     public DateTime? PaidDate { get; init; }
+    public DateTime? CancelledAt { get; init; }
+    public string? CancellationReason { get; init; }
     public DateTime CreatedAt { get; init; }
     public DateTime UpdatedAt { get; init; }
     public DateTime? EmailSentAt { get; init; }

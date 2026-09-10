@@ -72,22 +72,19 @@ public class AuthMiddleware
 
         var token = ExtractToken(context);
 
-        // Interne Modul-Kommunikation ohne User-Token durchlassen (z.B. Health/technische Calls).
-        // Wenn ein Token vorhanden ist, wird IMMER validiert.
-        var isInternal = IsInternalModuleRequest(context);
-        if (isInternal && string.IsNullOrEmpty(token))
-        {
-            context.User = CreateInternalServicePrincipal();
-            _logger.LogDebug("AuthMiddleware: Internal request without token uses internal service principal. Path={Path}", path);
-            await _next(context);
-            return;
-        }
+        // WICHTIG: Host ist die einzige nach außen (und im LAN) erreichbare Komponente —
+        // anders als bei den Modulen (JwtUserContextMiddleware) darf hier NICHT anhand der
+        // Quell-IP auf "intern" geschlossen werden: Docker leitet auch echten Browser-Traffic
+        // von externen/LAN-Clients über den veröffentlichten Port so weiter, dass er wie ein
+        // Docker-internes Netz aussieht (private IP-Bereiche). Ein solcher IP-Check hätte
+        // externen Zugriff ohne Login erlaubt. Echte interne Technik-Aufrufe (Registrierung,
+        // Healthcheck) sind stattdessen explizit in PublicPaths/PublicPathPrefixes gelistet.
 
         // Auth aktiviert: JWT prüfen
         if (string.IsNullOrEmpty(token))
         {
             // API-Requests bekommen 401
-            if (path.StartsWith("/api/", StringComparison.OrdinalIgnoreCase))
+            if (IsApiPath(path))
             {
                 var remoteIp = context.Connection.RemoteIpAddress;
                 var hostHeader = context.Request.Host.Host;
@@ -105,18 +102,8 @@ public class AuthMiddleware
         var principal = ValidateToken(token);
         if (principal == null)
         {
-            if (isInternal)
-            {
-                context.User = CreateInternalServicePrincipal();
-                _logger.LogWarning("AuthMiddleware: Invalid token on internal request. Using internal service principal. Path={Path}, Host={Host}",
-                    path,
-                    context.Request.Host.Host);
-                await _next(context);
-                return;
-            }
-
             // Ungültiger Token: API-Requests bekommen 401
-            if (path.StartsWith("/api/", StringComparison.OrdinalIgnoreCase))
+            if (IsApiPath(path))
             {
                 _logger.LogWarning("AuthMiddleware: 401 invalid token. Path={Path}, Host={Host}, HasAuthHeader={HasAuthHeader}",
                     path,
@@ -134,6 +121,15 @@ public class AuthMiddleware
         context.User = principal;
         await _next(context);
     }
+
+    /// <summary>
+    /// Erkennt API-Aufrufe sowohl am Host selbst ("/api/...") als auch an über YARP
+    /// weitergeleitete Modul-Endpunkte ("/{modul}/api/...", z. B. "/recepta/api/recepta/documents").
+    /// Ohne diesen Check würden proxied Modul-API-Aufrufe fälschlich als "Page-Request"
+    /// durchgelassen, wenn kein Token vorhanden ist (siehe fehlende [RequireRole]-Absicherung).
+    /// </summary>
+    private static bool IsApiPath(string path) =>
+        path.Contains("/api/", StringComparison.OrdinalIgnoreCase);
 
     private static bool IsPublicPath(string path)
     {
@@ -173,49 +169,6 @@ public class AuthMiddleware
             return true;
         }
 
-        return false;
-    }
-
-    private bool IsInternalModuleRequest(HttpContext context)
-    {
-        // Requests von internen Modulen durchlassen (nicht vom Browser)
-        // Module kommunizieren direkt über Docker-Netzwerk (host:8080)
-        // Browser-Requests kommen über den externen Port (localhost:8080)
-        var host = context.Request.Host.Host;
-
-        // Docker-interne Requests: Hostname ist "host" (Docker-Service-Name) statt "localhost"
-        if (string.Equals(host, "host", StringComparison.OrdinalIgnoreCase))
-            return true;
-
-        // Also check for other Docker service names (faktura, rapport, etc.)
-        var knownServiceNames = new[] { "faktura", "rapport", "offerte", "acta", "recepta", "postgres" };
-        if (knownServiceNames.Any(name => string.Equals(host, name, StringComparison.OrdinalIgnoreCase)))
-            return true;
-
-        // Check remote IP — handle both IPv4 and IPv6-mapped IPv4 (::ffff:172.x.x.x)
-        var remoteIp = context.Connection.RemoteIpAddress;
-        if (remoteIp != null)
-        {
-            // Normalize IPv6-mapped IPv4 to plain IPv4
-            var ip = remoteIp.IsIPv4MappedToIPv6
-                ? remoteIp.MapToIPv4().ToString()
-                : remoteIp.ToString();
-
-            if (ip.StartsWith("172.") || ip.StartsWith("10.") || ip.StartsWith("192.168."))
-                return true;
-
-            // Loopback (falls ServiceUrls:Host auf localhost/127.0.0.1 fällt)
-            if (ip == "127.0.0.1" || ip == "::1")
-                return true;
-
-            // Also check for IPv6 link-local (fe80::) and unique-local (fd/fc)
-            if (ip.StartsWith("fe80:") || ip.StartsWith("fd") || ip.StartsWith("fc"))
-                return true;
-        }
-
-        var path = context.Request.Path.Value;
-        _logger.LogDebug("AuthMiddleware: IsInternalModuleRequest=false. Path={Path}, Host={Host}, RemoteIP={RemoteIP}",
-            path, host, remoteIp);
         return false;
     }
 
@@ -286,17 +239,5 @@ public class AuthMiddleware
         }
 
         return null;
-    }
-
-    private static ClaimsPrincipal CreateInternalServicePrincipal()
-    {
-        var claims = new[]
-        {
-            new Claim(ClaimTypes.NameIdentifier, Guid.Empty.ToString()),
-            new Claim(ClaimTypes.Name, "InternalModule"),
-            new Claim(ClaimTypes.Role, UserRole.Admin.ToString())
-        };
-
-        return new ClaimsPrincipal(new ClaimsIdentity(claims, "InternalService"));
     }
 }

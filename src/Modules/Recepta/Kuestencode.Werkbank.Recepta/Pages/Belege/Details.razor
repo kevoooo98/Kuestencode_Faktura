@@ -10,8 +10,6 @@
 @inject NavigationManager NavigationManager
 @inject ISnackbar Snackbar
 @inject Kuestencode.Werkbank.Recepta.Services.Interfaces.IDocumentPaymentService PaymentService
-@inject Kuestencode.Werkbank.Recepta.Services.Interfaces.IDocumentActivityService ActivityService
-@inject Microsoft.AspNetCore.Components.Authorization.AuthenticationStateProvider AuthStateProvider
 
 <PageTitle>Beleg @(_document?.DocumentNumber ?? "") - Küstencode Recepta</PageTitle>
 
@@ -69,11 +67,6 @@
                 }
                 else if (_document.Status == "Booked")
                 {
-                    <MudButton Variant="Variant.Outlined" Color="Color.Default"
-                              StartIcon="@Icons.Material.Filled.Undo"
-                              OnClick="RevertToDraft" Disabled="@_statusChanging">
-                        Zurück zu Entwurf
-                    </MudButton>
                     <MudButton Variant="Variant.Filled" Color="Color.Success"
                               StartIcon="@Icons.Material.Filled.Paid"
                               OnClick="OpenMarkAsPaidDialog" Disabled="@_statusChanging">
@@ -325,6 +318,34 @@
                     </MudStack>
                 </MudPaper>
             </MudItem>
+
+            @if (_auditLog.Count > 0)
+            {
+                <MudItem xs="12">
+                    <MudExpansionPanels>
+                        <MudExpansionPanel Text="@($"Änderungshistorie ({_auditLog.Count})")">
+                            <MudTable Items="@_auditLog" Dense="true" Hover="true">
+                                <HeaderContent>
+                                    <MudTh>Zeitpunkt</MudTh>
+                                    <MudTh>Aktion</MudTh>
+                                    <MudTh>Feld</MudTh>
+                                    <MudTh>Alter Wert</MudTh>
+                                    <MudTh>Neuer Wert</MudTh>
+                                    <MudTh>Nutzer</MudTh>
+                                </HeaderContent>
+                                <RowTemplate>
+                                    <MudTd>@context.ChangedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</MudTd>
+                                    <MudTd>@context.Action</MudTd>
+                                    <MudTd>@(context.FieldName ?? "—")</MudTd>
+                                    <MudTd>@(context.OldValue ?? "—")</MudTd>
+                                    <MudTd>@(context.NewValue ?? "—")</MudTd>
+                                    <MudTd>@context.ChangedByUserName</MudTd>
+                                </RowTemplate>
+                            </MudTable>
+                        </MudExpansionPanel>
+                    </MudExpansionPanels>
+                </MudItem>
+            }
         </MudGrid>
 
         @if (_markAsPaidOpen)
@@ -491,6 +512,7 @@
     private double _zoom = 1.0;
 
     private string? _projectName;
+    private List<AuditLogEntryDto> _auditLog = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -507,6 +529,7 @@
 
             // Dateien sequentiell laden (DbContext ist nicht thread-safe)
             _files = await FileService.GetByDocumentIdAsync(Id);
+            _auditLog = await DocumentService.GetAuditLogAsync(Id);
         }
         catch (Exception ex)
         {
@@ -581,18 +604,6 @@
         NavigationManager.NavigateTo($"/recepta/belege/{Id}");
     }
 
-    private async Task<string> GetCurrentUserNameAsync()
-    {
-        try
-        {
-            var state = await AuthStateProvider.GetAuthenticationStateAsync();
-            return state.User.Identity?.Name
-                ?? state.User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value
-                ?? "Unbekannt";
-        }
-        catch { return "Unbekannt"; }
-    }
-
     private async Task MarkAsBooked()
     {
         _statusChanging = true;
@@ -601,8 +612,7 @@
             await DocumentService.ChangeStatusAsync(Id, DocumentStatus.Booked);
             Snackbar.Add("Beleg als gebucht markiert.", Severity.Success);
             _document = await DocumentService.GetByIdAsync(Id);
-            var userName = await GetCurrentUserNameAsync();
-            _ = ActivityService.LogAsync(userName, _document!.DocumentNumber, "als Verbucht markiert");
+            _auditLog = await DocumentService.GetAuditLogAsync(Id);
         }
         catch (Exception ex)
         {
@@ -635,29 +645,7 @@
             await DocumentService.ChangeStatusAsync(Id, DocumentStatus.Paid, paidDate);
             Snackbar.Add("Beleg als bezahlt markiert.", Severity.Success);
             _document = await DocumentService.GetByIdAsync(Id);
-            var userName = await GetCurrentUserNameAsync();
-            _ = ActivityService.LogAsync(userName, _document!.DocumentNumber, "als Bezahlt markiert");
-        }
-        catch (Exception ex)
-        {
-            Snackbar.Add($"Fehler: {ex.Message}", Severity.Error);
-        }
-        finally
-        {
-            _statusChanging = false;
-        }
-    }
-
-    private async Task RevertToDraft()
-    {
-        _statusChanging = true;
-        try
-        {
-            await DocumentService.ChangeStatusAsync(Id, DocumentStatus.Draft);
-            Snackbar.Add("Beleg auf Entwurf zurückgesetzt.", Severity.Success);
-            _document = await DocumentService.GetByIdAsync(Id);
-            var userName = await GetCurrentUserNameAsync();
-            _ = ActivityService.LogAsync(userName, _document!.DocumentNumber, "auf Entwurf zurückgesetzt");
+            _auditLog = await DocumentService.GetAuditLogAsync(Id);
         }
         catch (Exception ex)
         {
@@ -699,10 +687,7 @@
             await PaymentService.ZahlungErfassenAsync(_document.Id, _zahlungBetrag, datum, _zahlungNotiz);
             _zahlungModalOpen = false;
             Snackbar.Add($"Zahlung über {_zahlungBetrag.ToString("N2", _culture)} € wurde erfasst.", Severity.Success);
-            var docNumber = _document.DocumentNumber;
             _document = await DocumentService.GetByIdAsync(Id);
-            var userName = await GetCurrentUserNameAsync();
-            _ = ActivityService.LogAsync(userName, docNumber, $"Zahlung über {_zahlungBetrag.ToString("N2", _culture)} € erfasst");
         }
         catch (Exception ex)
         {

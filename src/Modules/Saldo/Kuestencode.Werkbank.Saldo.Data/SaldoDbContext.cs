@@ -27,6 +27,7 @@ public class SaldoDbContext : DbContext
     public DbSet<KategorieKontoMapping> KategorieKontoMappings { get; set; } = null!;
     public DbSet<KontoMappingOverride> KontoMappingOverrides { get; set; } = null!;
     public DbSet<ExportLog> ExportLogs { get; set; } = null!;
+    public DbSet<PeriodClose> PeriodCloses { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -81,7 +82,10 @@ public class SaldoDbContext : DbContext
         modelBuilder.Entity<KontoMappingOverride>(entity =>
         {
             entity.HasKey(e => e.Id);
-            entity.HasIndex(e => new { e.Kontenrahmen, e.Kategorie }).IsUnique();
+            // Maximal eine offene (aktive) Version pro Kontenrahmen+Kategorie.
+            entity.HasIndex(e => new { e.Kontenrahmen, e.Kategorie })
+                .IsUnique()
+                .HasFilter("\"GueltigBis\" IS NULL");
             entity.Property(e => e.Kontenrahmen).HasMaxLength(10).IsRequired();
             entity.Property(e => e.Kategorie).HasMaxLength(30).IsRequired();
             entity.Property(e => e.KontoNummer).HasMaxLength(10).IsRequired();
@@ -96,6 +100,14 @@ public class SaldoDbContext : DbContext
             entity.Property(e => e.ExportTyp).HasConversion<string>().HasMaxLength(30);
             entity.Property(e => e.DateiName).HasMaxLength(255).IsRequired();
             entity.Property(e => e.ExportedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+        });
+
+        // PeriodClose
+        modelBuilder.Entity<PeriodClose>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => new { e.ZeitraumVon, e.ZeitraumBis });
+            entity.Property(e => e.ClosedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
         });
     }
 

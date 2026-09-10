@@ -65,7 +65,7 @@ public class DatevExportService : IDatevExportService
 
     // ─── BUCHUNGSSTAPEL ───────────────────────────────────────────────────────
 
-    public async Task<byte[]> ExportBuchungsstapelAsync(DateOnly von, DateOnly bis)
+    public async Task<byte[]> ExportBuchungsstapelAsync(DateOnly von, DateOnly bis, Guid exportedByUserId)
     {
         var settings = await _settingsRepo.GetAsync();
         var buchungen = await _saldoService.GetAlleBuchungenAsync(von, bis);
@@ -94,7 +94,7 @@ public class DatevExportService : IDatevExportService
 
         await LogExportAsync(ExportTyp.DatevBuchungsstapel, von, bis, buchungen.Count,
             $"DATEV_Buchungsstapel_{von:yyyyMMdd}_{bis:yyyyMMdd}.csv",
-            Encoding.GetEncoding(1252).GetByteCount(csv));
+            Encoding.GetEncoding(1252).GetByteCount(csv), exportedByUserId);
 
         // DATEV erwartet Windows-1252
         return Encoding.GetEncoding(1252).GetBytes(csv);
@@ -211,7 +211,7 @@ public class DatevExportService : IDatevExportService
 
     // ─── BELEGE-ZIP ──────────────────────────────────────────────────────────
 
-    public async Task<byte[]> ExportBelegeAsync(DateOnly von, DateOnly bis)
+    public async Task<byte[]> ExportBelegeAsync(DateOnly von, DateOnly bis, Guid exportedByUserId)
     {
         using var zipStream = new MemoryStream();
         using (var archive = new ZipArchive(zipStream, ZipArchiveMode.Create, leaveOpen: true))
@@ -228,7 +228,7 @@ public class DatevExportService : IDatevExportService
 
             await LogExportAsync(ExportTyp.DatevBelege, von, bis, fileCount,
                 $"DATEV_Belege_{von:yyyyMMdd}_{bis:yyyyMMdd}.zip",
-                zipStream.Length);
+                zipStream.Length, exportedByUserId);
         }
 
         return zipStream.ToArray();
@@ -348,7 +348,7 @@ public class DatevExportService : IDatevExportService
         return alle.Select(MapToDto).ToList();
     }
 
-    private async Task LogExportAsync(ExportTyp typ, DateOnly von, DateOnly bis, int anzahl, string dateiName, long dateiGroesse)
+    private async Task LogExportAsync(ExportTyp typ, DateOnly von, DateOnly bis, int anzahl, string dateiName, long dateiGroesse, Guid exportedByUserId)
     {
         try
         {
@@ -361,7 +361,7 @@ public class DatevExportService : IDatevExportService
                 DateiName = dateiName,
                 DateiGroesse = dateiGroesse,
                 ExportedAt = DateTime.UtcNow,
-                ExportedByUserId = Guid.Empty  // Kein Auth-Context im Service verfügbar
+                ExportedByUserId = exportedByUserId
             };
             await _exportLogRepo.AddAsync(log);
         }
@@ -380,6 +380,7 @@ public class DatevExportService : IDatevExportService
         AnzahlBuchungen = log.AnzahlBuchungen,
         DateiName = log.DateiName,
         DateiGroesse = log.DateiGroesse,
-        ExportedAt = log.ExportedAt
+        ExportedAt = log.ExportedAt,
+        ExportedByUserId = log.ExportedByUserId
     };
 }

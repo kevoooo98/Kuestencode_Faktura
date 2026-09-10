@@ -24,5 +24,11 @@ public class InvoiceAttachment
 
     public DateTime UploadedAt { get; set; } = DateTime.UtcNow;
 
+    /// <summary>
+    /// True für das beim Versand/Druck eingefrorene PDF (GoBD-Unveränderbarkeit) — wird nicht
+    /// als zusätzlicher E-Mail-Anhang mitgeschickt, siehe <see cref="Email.EmailAttachmentBuilder"/>.
+    /// </summary>
+    public bool IsFrozenSnapshot { get; set; }
+
     public Invoice Invoice { get; set; } = null!;
 }

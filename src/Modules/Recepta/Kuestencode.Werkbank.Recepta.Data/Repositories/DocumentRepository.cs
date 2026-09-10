@@ -131,10 +131,22 @@ public class DocumentRepository : IDocumentRepository
             ? settings.IncomingInvoiceFormat.Trim()
             : "ER-YYYY-XXXX";
 
-        var existingNumbers = await _context.Documents
-            .Select(d => d.DocumentNumber)
-            .ToListAsync();
+        var referenceDate = DateTime.Now;
+        var sequenceKey = DocumentNumberFormatter.SplitAroundSequence(format, referenceDate).Prefix;
 
-        return DocumentNumberFormatter.GenerateNext(format, DateTime.Now, existingNumbers);
+        return await NumberSequenceService.GetNextNumberAsync(
+            _context.Database,
+            "recepta.\"NumberSequences\"",
+            sequenceKey,
+            format,
+            referenceDate,
+            seedFromExistingAsync: async () =>
+            {
+                var existingNumbers = await _context.Documents
+                    .Select(d => d.DocumentNumber)
+                    .ToListAsync();
+
+                return DocumentNumberFormatter.GetLastSequenceNumber(format, referenceDate, existingNumbers);
+            });
     }
 }

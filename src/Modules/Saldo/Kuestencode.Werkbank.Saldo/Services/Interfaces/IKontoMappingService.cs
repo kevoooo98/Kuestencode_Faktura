@@ -16,8 +16,9 @@ public interface IKontoMappingService
     /// <summary>
     /// Gibt die Kontonummer für eine Ausgabe anhand der Recepta-Kategorie zurück.
     /// Benutzerdefinierte Overrides haben Vorrang vor Standard-Mappings.
+    /// Der Override wird zum <paramref name="asOfDate"/> aufgelöst (Standard: heute).
     /// </summary>
-    Task<string> GetAusgabenKontoAsync(string kategorie);
+    Task<string> GetAusgabenKontoAsync(string kategorie, DateOnly? asOfDate = null);
 
     /// <summary>
     /// Gibt die Kontonummer des konfigurierten Bankkontos zurück.

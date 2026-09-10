@@ -35,6 +35,12 @@ public class DocumentFileService : IDocumentFileService
             throw new InvalidOperationException($"Beleg mit ID {documentId} nicht gefunden.");
         }
 
+        if (!document.IsEditable)
+        {
+            throw new InvalidOperationException(
+                $"Dateianhänge können nur bei Belegen im Status 'Draft' geändert werden. Status: {document.Status}");
+        }
+
         // Jahr-basierte Verzeichnisstruktur: /app/data/{year}/{documentId}/
         var year = DateTime.UtcNow.Year.ToString();
         var directory = Path.Combine(_storagePath, year, documentId.ToString());
@@ -106,6 +112,13 @@ public class DocumentFileService : IDocumentFileService
         if (file == null)
         {
             throw new InvalidOperationException($"Datei mit ID {fileId} nicht gefunden.");
+        }
+
+        var document = await _documentRepository.GetByIdAsync(file.DocumentId);
+        if (document != null && !document.IsEditable)
+        {
+            throw new InvalidOperationException(
+                $"Dateianhänge können nur bei Belegen im Status 'Draft' geändert werden. Status: {document.Status}");
         }
 
         if (File.Exists(file.StoragePath))

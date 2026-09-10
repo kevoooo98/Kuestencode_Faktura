@@ -18,13 +18,15 @@ public class EmailServiceTests
     private readonly Mock<IHostApiClient> _hostApiClient = new();
     private readonly Mock<IEmailMessageBuilder> _messageBuilder = new();
     private readonly Mock<IEmailEngine> _emailEngine = new();
+    private readonly Mock<IPdfGeneratorService> _pdfGeneratorService = new();
     private readonly EmailService _service;
 
     public EmailServiceTests()
     {
+        _pdfGeneratorService.Setup(p => p.FreezeSnapshotAsync(It.IsAny<int>())).Returns(Task.CompletedTask);
         _service = new EmailService(
             _invoiceRepository.Object, _hostApiClient.Object, _messageBuilder.Object, _emailEngine.Object,
-            NullLogger<EmailService>.Instance);
+            _pdfGeneratorService.Object, NullLogger<EmailService>.Instance);
     }
 
     private static CompanyDto MakeCompanyDto() => new()
@@ -148,6 +150,17 @@ public class EmailServiceTests
 
         invoice.EmailCcRecipients.Should().Be("cc@example.com");
         invoice.EmailBccRecipients.Should().Be("bcc@example.com");
+    }
+
+    [Fact]
+    public async Task SendInvoiceEmail_NormalPdf_FriertSnapshotEin()
+    {
+        var invoice = MakeInvoice(InvoiceStatus.Draft);
+        SetupHappyPath(invoice);
+
+        await _service.SendInvoiceEmailAsync(1, "kunde@example.com");
+
+        _pdfGeneratorService.Verify(p => p.FreezeSnapshotAsync(1), Times.Once);
     }
 
     [Fact]

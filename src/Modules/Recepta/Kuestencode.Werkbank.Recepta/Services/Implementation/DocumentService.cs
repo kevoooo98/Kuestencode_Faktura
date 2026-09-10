@@ -1,9 +1,11 @@
 using System.Globalization;
 using Kuestencode.Werkbank.Recepta.Controllers.Dtos;
+using Kuestencode.Werkbank.Recepta.Data;
 using Kuestencode.Werkbank.Recepta.Data.Repositories;
 using Kuestencode.Werkbank.Recepta.Domain.Dtos;
 using Kuestencode.Werkbank.Recepta.Domain.Entities;
 using Kuestencode.Werkbank.Recepta.Domain.Enums;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
 namespace Kuestencode.Werkbank.Recepta.Services;
@@ -19,6 +21,8 @@ public class DocumentService : IDocumentService
     private readonly IOcrService _ocrService;
     private readonly IOcrPatternService _patternService;
     private readonly IXRechnungService _xRechnungService;
+    private readonly IDocumentFileService _fileService;
+    private readonly ReceptaDbContext _context;
     private readonly ILogger<DocumentService> _logger;
 
     public DocumentService(
@@ -28,6 +32,8 @@ public class DocumentService : IDocumentService
         IOcrService ocrService,
         IOcrPatternService patternService,
         IXRechnungService xRechnungService,
+        IDocumentFileService fileService,
+        ReceptaDbContext context,
         ILogger<DocumentService> logger)
     {
         _documentRepository = documentRepository;
@@ -36,6 +42,8 @@ public class DocumentService : IDocumentService
         _ocrService = ocrService;
         _patternService = patternService;
         _xRechnungService = xRechnungService;
+        _fileService = fileService;
+        _context = context;
         _logger = logger;
     }
 
@@ -347,7 +355,6 @@ public class DocumentService : IDocumentService
         {
             (DocumentStatus.Draft, DocumentStatus.Booked) => true,
             (DocumentStatus.Booked, DocumentStatus.Paid) => true,
-            (DocumentStatus.Booked, DocumentStatus.Draft) => true,
             _ => false
         };
 
@@ -414,6 +421,23 @@ public class DocumentService : IDocumentService
 
     public async Task DeleteAsync(Guid id)
     {
+        var document = await _documentRepository.GetByIdAsync(id)
+            ?? throw new InvalidOperationException($"Beleg mit ID {id} nicht gefunden.");
+
+        if (!document.IsEditable)
+        {
+            throw new InvalidOperationException(
+                "Beleg kann nicht gelöscht werden. Nur Belege im Status 'Draft' können gelöscht werden.");
+        }
+
+        // Physische Dateien zuerst löschen (Repository-Delete entfernt sonst nur die DB-Zeilen per
+        // Cascade, die Dateien blieben als Datenleiche auf der Festplatte zurück). Der Status-Check
+        // oben läuft bewusst vorher, damit bei einem nicht löschbaren Beleg keine Datei angefasst wird.
+        foreach (var file in document.Files.ToList())
+        {
+            await _fileService.DeleteAsync(file.Id);
+        }
+
         await _documentRepository.DeleteAsync(id);
     }
 
@@ -428,6 +452,11 @@ public class DocumentService : IDocumentService
         if (document == null)
         {
             throw new InvalidOperationException($"Beleg mit ID {id} nicht gefunden.");
+        }
+
+        if (!document.IsEditable)
+        {
+            throw new InvalidOperationException($"OCR-Text kann nicht mehr geändert werden. Status: {document.Status}");
         }
 
         document.OcrRawText = ocrText;
@@ -526,6 +555,24 @@ public class DocumentService : IDocumentService
 
         document.SkontoApplied = applied;
         await _documentRepository.UpdateAsync(document);
+    }
+
+    public async Task<List<AuditLogEntryDto>> GetAuditLogAsync(Guid id)
+    {
+        var entityId = id.ToString();
+        return await _context.AuditLogEntries
+            .Where(a => a.EntityName == nameof(Document) && a.EntityId == entityId)
+            .OrderByDescending(a => a.ChangedAt)
+            .Select(a => new AuditLogEntryDto
+            {
+                Action = a.Action,
+                FieldName = a.FieldName,
+                OldValue = a.OldValue,
+                NewValue = a.NewValue,
+                ChangedByUserName = a.ChangedByUserName,
+                ChangedAt = a.ChangedAt
+            })
+            .ToListAsync();
     }
 
     private static DocumentDto MapToDto(Document document)

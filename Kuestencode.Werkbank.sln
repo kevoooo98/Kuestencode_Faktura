@@ -87,6 +87,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kuestencode.Rapport", "src\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kuestencode.Shared.Pdf.Tests", "tests\Kuestencode.Shared.Pdf.Tests\Kuestencode.Shared.Pdf.Tests.csproj", "{82978989-559B-4CE3-8171-E2CAEAC30172}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kuestencode.Werkbank.Recepta.Tests", "src\Modules\Recepta\Kuestencode.Werkbank.Recepta.Tests\Kuestencode.Werkbank.Recepta.Tests.csproj", "{97100B61-F8B6-41E7-AF18-EACBDE21CF01}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -445,6 +447,18 @@ Global
 		{82978989-559B-4CE3-8171-E2CAEAC30172}.Release|x64.Build.0 = Release|Any CPU
 		{82978989-559B-4CE3-8171-E2CAEAC30172}.Release|x86.ActiveCfg = Release|Any CPU
 		{82978989-559B-4CE3-8171-E2CAEAC30172}.Release|x86.Build.0 = Release|Any CPU
+		{97100B61-F8B6-41E7-AF18-EACBDE21CF01}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{97100B61-F8B6-41E7-AF18-EACBDE21CF01}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{97100B61-F8B6-41E7-AF18-EACBDE21CF01}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{97100B61-F8B6-41E7-AF18-EACBDE21CF01}.Debug|x64.Build.0 = Debug|Any CPU
+		{97100B61-F8B6-41E7-AF18-EACBDE21CF01}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{97100B61-F8B6-41E7-AF18-EACBDE21CF01}.Debug|x86.Build.0 = Debug|Any CPU
+		{97100B61-F8B6-41E7-AF18-EACBDE21CF01}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{97100B61-F8B6-41E7-AF18-EACBDE21CF01}.Release|Any CPU.Build.0 = Release|Any CPU
+		{97100B61-F8B6-41E7-AF18-EACBDE21CF01}.Release|x64.ActiveCfg = Release|Any CPU
+		{97100B61-F8B6-41E7-AF18-EACBDE21CF01}.Release|x64.Build.0 = Release|Any CPU
+		{97100B61-F8B6-41E7-AF18-EACBDE21CF01}.Release|x86.ActiveCfg = Release|Any CPU
+		{97100B61-F8B6-41E7-AF18-EACBDE21CF01}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -489,6 +503,7 @@ Global
 		{3FAACA27-B7AB-C6E4-A3AE-78089F260220} = {EEEE4444-5555-6666-7777-888888888888}
 		{A869EFFF-D7EB-42A4-8BDB-8EF910554291} = {3FAACA27-B7AB-C6E4-A3AE-78089F260220}
 		{82978989-559B-4CE3-8171-E2CAEAC30172} = {EEEE5555-6666-7777-8888-999999999999}
+		{97100B61-F8B6-41E7-AF18-EACBDE21CF01} = {B7BFE303-0B9A-695E-BA90-ACF6AE756BF5}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {F1A2B3C4-D5E6-7890-ABCD-EF1234567890}

@@ -1,5 +1,7 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text;
 using FluentAssertions;
 using Kuestencode.Faktura.Data;
 using Kuestencode.Faktura.Models;
@@ -18,6 +20,27 @@ public class InvoiceControllerTests : IClassFixture<FakturaWebApplicationFactory
     {
         _factory = factory;
         _client = factory.CreateClient();
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", CreateTestAdminJwt());
+    }
+
+    /// <summary>
+    /// Erzeugt ein unsigniertes, aber syntaktisch gültiges JWT mit Admin-Rolle.
+    /// JwtPrincipalParser (Kuestencode.Shared.UI) validiert nur die Struktur/Ablaufzeit,
+    /// keine Signatur — analog dazu, wie JwtUserContextMiddleware einem bereits vom Host
+    /// geprüften Token vertraut. Reicht für [RequireRole] in diesen Controller-Tests.
+    /// </summary>
+    private static string CreateTestAdminJwt()
+    {
+        static string Base64Url(string json) => Convert.ToBase64String(Encoding.UTF8.GetBytes(json))
+            .TrimEnd('=').Replace('+', '-').Replace('/', '_');
+
+        var header = Base64Url("""{"alg":"none","typ":"JWT"}""");
+        var exp = DateTimeOffset.UtcNow.AddHours(1).ToUnixTimeSeconds();
+        var payload = Base64Url($$"""
+            {"http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier":"{{Guid.NewGuid()}}","http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name":"Test Admin","http://schemas.microsoft.com/ws/2008/06/identity/claims/role":"Admin","exp":{{exp}}}
+            """);
+
+        return $"{header}.{payload}.unsigned";
     }
 
     private static CreateInvoiceRequest MakeCreateRequest(int customerId = 1) => new()
@@ -141,6 +164,84 @@ public class InvoiceControllerTests : IClassFixture<FakturaWebApplicationFactory
         var updated = await getResponse.Content.ReadFromJsonAsync<InvoiceDto>();
 
         updated!.Status.Should().Be("Paid");
+    }
+
+    private async Task<InvoiceDto> CreateAndMarkAsSentAsync()
+    {
+        var createResponse = await _client.PostAsJsonAsync("/api/Invoice", MakeCreateRequest());
+        var created = (await createResponse.Content.ReadFromJsonAsync<InvoiceDto>())!;
+
+        using var scope = _factory.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<FakturaDbContext>();
+        var invoice = await context.Invoices.FindAsync(created.Id);
+        invoice!.Status = InvoiceStatus.Sent;
+        await context.SaveChangesAsync();
+
+        return created with { Status = "Sent" };
+    }
+
+    [Fact]
+    public async Task Update_VersendeteRechnung_GibtConflictZurueck()
+    {
+        var invoice = await CreateAndMarkAsSentAsync();
+
+        var updateRequest = new UpdateInvoiceRequest
+        {
+            InvoiceDate = invoice.InvoiceDate,
+            CustomerId = invoice.CustomerId,
+            Items = [new CreateInvoiceItemRequest { Description = "Geaendert", Quantity = 1, UnitPrice = 1, VatRate = 19 }]
+        };
+
+        var updateResponse = await _client.PutAsJsonAsync($"/api/Invoice/{invoice.Id}", updateRequest);
+        updateResponse.StatusCode.Should().Be(HttpStatusCode.Conflict);
+    }
+
+    [Fact]
+    public async Task Delete_VersendeteRechnung_GibtConflictZurueck()
+    {
+        var invoice = await CreateAndMarkAsSentAsync();
+
+        var deleteResponse = await _client.DeleteAsync($"/api/Invoice/{invoice.Id}");
+        deleteResponse.StatusCode.Should().Be(HttpStatusCode.Conflict);
+
+        var getResponse = await _client.GetAsync($"/api/Invoice/{invoice.Id}");
+        getResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task Cancel_VersendeteRechnung_SetztStatusAufCancelled()
+    {
+        var invoice = await CreateAndMarkAsSentAsync();
+
+        var cancelResponse = await _client.PostAsJsonAsync($"/api/Invoice/{invoice.Id}/cancel", new { Reason = "Testgrund" });
+        cancelResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var getResponse = await _client.GetAsync($"/api/Invoice/{invoice.Id}");
+        var updated = await getResponse.Content.ReadFromJsonAsync<InvoiceDto>();
+
+        updated!.Status.Should().Be("Cancelled");
+        updated.CancellationReason.Should().Be("Testgrund");
+        updated.CancelledAt.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task Cancel_EntwurfsRechnung_GibtConflictZurueck()
+    {
+        var createResponse = await _client.PostAsJsonAsync("/api/Invoice", MakeCreateRequest());
+        var created = (await createResponse.Content.ReadFromJsonAsync<InvoiceDto>())!;
+
+        var cancelResponse = await _client.PostAsJsonAsync($"/api/Invoice/{created.Id}/cancel", new { });
+        cancelResponse.StatusCode.Should().Be(HttpStatusCode.Conflict);
+    }
+
+    [Fact]
+    public async Task Cancel_BereitsStornierteRechnung_GibtConflictZurueck()
+    {
+        var invoice = await CreateAndMarkAsSentAsync();
+        await _client.PostAsJsonAsync($"/api/Invoice/{invoice.Id}/cancel", new { });
+
+        var secondCancelResponse = await _client.PostAsJsonAsync($"/api/Invoice/{invoice.Id}/cancel", new { });
+        secondCancelResponse.StatusCode.Should().Be(HttpStatusCode.Conflict);
     }
 
     [Fact]

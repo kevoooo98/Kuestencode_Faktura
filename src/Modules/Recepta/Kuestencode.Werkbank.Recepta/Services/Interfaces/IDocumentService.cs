@@ -80,4 +80,9 @@ public interface IDocumentService
     /// Setzt das SkontoApplied-Flag unabhängig vom Beleg-Status.
     /// </summary>
     Task SetSkontoAppliedAsync(Guid documentId, bool applied);
+
+    /// <summary>
+    /// Lädt das Änderungsprotokoll (GoBD-Audit-Log) eines Belegs, neueste zuerst.
+    /// </summary>
+    Task<List<AuditLogEntryDto>> GetAuditLogAsync(Guid id);
 }

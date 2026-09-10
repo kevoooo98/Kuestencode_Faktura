@@ -23,6 +23,7 @@ public partial class Details
     public int Id { get; set; }
 
     private Invoice? _invoice;
+    private List<Kuestencode.Shared.Contracts.Faktura.AuditLogEntryDto> _auditLog = new();
     private Company? _company;
     private bool _loading = true;
     private string? _fromFilter;
@@ -106,6 +107,7 @@ public partial class Details
         {
             _invoice = await InvoiceService.GetByIdAsync(Id, includeCustomer: true, includeItems: true);
             await LoadProjectNameAsync();
+            _auditLog = await InvoiceService.GetAuditLogAsync(Id);
         }
         catch (Exception ex)
         {
@@ -179,6 +181,34 @@ public partial class Details
         catch (Exception ex)
         {
             Snackbar.Add($"Fehler beim Erstellen der Gutschrift: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task CancelInvoice()
+    {
+        if (_invoice == null) return;
+
+        var parameters = new DialogParameters<ConfirmDialog>
+        {
+            { x => x.ContentText, $"Rechnung {_invoice.InvoiceNumber} wirklich stornieren? Die Rechnung bleibt als storniert erhalten und kann danach nicht mehr geändert werden." },
+            { x => x.ButtonText, "Stornieren" },
+            { x => x.Color, Color.Error }
+        };
+
+        var dialog = await DialogService.ShowAsync<ConfirmDialog>("Rechnung stornieren", parameters);
+        var result = await dialog.Result;
+
+        if (result is null || result.Canceled) return;
+
+        try
+        {
+            await InvoiceService.CancelAsync(_invoice.Id, null);
+            Snackbar.Add($"Rechnung {_invoice.InvoiceNumber} wurde storniert", Severity.Success);
+            await LoadInvoice();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler beim Stornieren: {ex.Message}", Severity.Error);
         }
     }
 

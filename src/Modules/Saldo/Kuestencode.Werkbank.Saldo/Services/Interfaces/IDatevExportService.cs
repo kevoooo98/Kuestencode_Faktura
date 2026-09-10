@@ -10,13 +10,13 @@ public interface IDatevExportService
     /// <summary>
     /// Erzeugt einen DATEV-Buchungsstapel im EXTF-Format (Windows-1252, Semikolon-CSV).
     /// </summary>
-    Task<byte[]> ExportBuchungsstapelAsync(DateOnly von, DateOnly bis);
+    Task<byte[]> ExportBuchungsstapelAsync(DateOnly von, DateOnly bis, Guid exportedByUserId);
 
     /// <summary>
     /// Erzeugt ein ZIP-Archiv mit allen Belegen des Zeitraums als PDF.
     /// Faktura-Rechnungen werden on-the-fly generiert, Recepta-Belege sind die hochgeladenen Dateien.
     /// </summary>
-    Task<byte[]> ExportBelegeAsync(DateOnly von, DateOnly bis);
+    Task<byte[]> ExportBelegeAsync(DateOnly von, DateOnly bis, Guid exportedByUserId);
 
     /// <summary>
     /// Gibt den letzten Export zurück (beliebiger Typ).

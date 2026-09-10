@@ -27,6 +27,7 @@ public class DatevExportServiceTests
 
     private static readonly DateOnly Von = new(2026, 1, 1);
     private static readonly DateOnly Bis = new(2026, 12, 31);
+    private static readonly Guid TestUserId = Guid.NewGuid();
 
     private DatevExportService CreateService() =>
         new(_saldoService.Object, _settingsRepo.Object, _kontoMappingService.Object,
@@ -56,7 +57,7 @@ public class DatevExportServiceTests
             .ReturnsAsync(new List<BuchungDto>());
 
         var service = CreateService();
-        var result = await service.ExportBuchungsstapelAsync(Von, Bis);
+        var result = await service.ExportBuchungsstapelAsync(Von, Bis, TestUserId);
 
         // Erster Byte-Check: muss mit EXTF in Windows-1252 beginnen
         var windows1252 = Encoding.GetEncoding(1252);
@@ -72,7 +73,7 @@ public class DatevExportServiceTests
             .ReturnsAsync(new List<BuchungDto>());
 
         var service = CreateService();
-        var result = await service.ExportBuchungsstapelAsync(Von, Bis);
+        var result = await service.ExportBuchungsstapelAsync(Von, Bis, TestUserId);
 
         var text = Encoding.GetEncoding(1252).GetString(result);
         var zeilen = text.Split('\n');
@@ -108,7 +109,7 @@ public class DatevExportServiceTests
             });
 
         var service = CreateService();
-        var result = await service.ExportBuchungsstapelAsync(Von, Bis);
+        var result = await service.ExportBuchungsstapelAsync(Von, Bis, TestUserId);
 
         var text = Encoding.GetEncoding(1252).GetString(result);
         var buchungszeile = text.Split('\n')[2]; // Zeile 3
@@ -139,7 +140,7 @@ public class DatevExportServiceTests
             });
 
         var service = CreateService();
-        var result = await service.ExportBuchungsstapelAsync(Von, Bis);
+        var result = await service.ExportBuchungsstapelAsync(Von, Bis, TestUserId);
 
         var text = Encoding.GetEncoding(1252).GetString(result);
         var buchungszeile = text.Split('\n')[2];
@@ -169,7 +170,7 @@ public class DatevExportServiceTests
             });
 
         var service = CreateService();
-        var result = await service.ExportBuchungsstapelAsync(Von, Bis);
+        var result = await service.ExportBuchungsstapelAsync(Von, Bis, TestUserId);
 
         var text = Encoding.GetEncoding(1252).GetString(result);
         var buchungszeile = text.Split('\n')[2];
@@ -206,7 +207,7 @@ public class DatevExportServiceTests
             });
 
         var service = CreateService();
-        var result = await service.ExportBuchungsstapelAsync(Von, Bis);
+        var result = await service.ExportBuchungsstapelAsync(Von, Bis, TestUserId);
 
         var text = Encoding.GetEncoding(1252).GetString(result);
         var buchungszeile = text.Split('\n')[2];
@@ -235,7 +236,7 @@ public class DatevExportServiceTests
             });
 
         var service = CreateService();
-        var result = await service.ExportBuchungsstapelAsync(Von, Bis);
+        var result = await service.ExportBuchungsstapelAsync(Von, Bis, TestUserId);
 
         var text = Encoding.GetEncoding(1252).GetString(result);
         var buchungszeile = text.Split('\n')[2];
@@ -264,7 +265,7 @@ public class DatevExportServiceTests
             });
 
         var service = CreateService();
-        var result = await service.ExportBuchungsstapelAsync(Von, Bis);
+        var result = await service.ExportBuchungsstapelAsync(Von, Bis, TestUserId);
 
         var text = Encoding.GetEncoding(1252).GetString(result);
 
@@ -292,7 +293,7 @@ public class DatevExportServiceTests
             });
 
         var service = CreateService();
-        var result = await service.ExportBuchungsstapelAsync(Von, Bis);
+        var result = await service.ExportBuchungsstapelAsync(Von, Bis, TestUserId);
 
         var text = Encoding.GetEncoding(1252).GetString(result);
         var buchungszeile = text.Split('\n')[2];
@@ -313,12 +314,13 @@ public class DatevExportServiceTests
             .ReturnsAsync(new List<BuchungDto>());
 
         var service = CreateService();
-        await service.ExportBuchungsstapelAsync(Von, Bis);
+        await service.ExportBuchungsstapelAsync(Von, Bis, TestUserId);
 
         _exportLogRepo.Verify(r => r.AddAsync(It.Is<ExportLog>(log =>
             log.ExportTyp == ExportTyp.DatevBuchungsstapel &&
             log.ZeitraumVon == Von &&
-            log.ZeitraumBis == Bis
+            log.ZeitraumBis == Bis &&
+            log.ExportedByUserId == TestUserId
         )), Times.Once);
     }
 
@@ -341,7 +343,7 @@ public class DatevExportServiceTests
             });
 
         var service = CreateService();
-        var result = await service.ExportBuchungsstapelAsync(Von, Bis);
+        var result = await service.ExportBuchungsstapelAsync(Von, Bis, TestUserId);
 
         var text = Encoding.GetEncoding(1252).GetString(result);
         text.Should().Contain("1234,56");  // Komma, kein Punkt
@@ -434,7 +436,7 @@ public class DatevExportServiceTests
             .ReturnsAsync(new List<Kuestencode.Shared.Contracts.Faktura.InvoiceEuerPaymentDto>());
 
         var service = CreateService();
-        var result = await service.ExportBelegeAsync(Von, Bis);
+        var result = await service.ExportBelegeAsync(Von, Bis, TestUserId);
 
         result.Should().NotBeNull();
         result.Length.Should().BeGreaterThan(0);
@@ -453,12 +455,13 @@ public class DatevExportServiceTests
             .ReturnsAsync(new List<Kuestencode.Shared.Contracts.Faktura.InvoiceEuerPaymentDto>());
 
         var service = CreateService();
-        await service.ExportBelegeAsync(Von, Bis);
+        await service.ExportBelegeAsync(Von, Bis, TestUserId);
 
         _exportLogRepo.Verify(r => r.AddAsync(It.Is<ExportLog>(log =>
             log.ExportTyp == ExportTyp.DatevBelege &&
             log.ZeitraumVon == Von &&
-            log.ZeitraumBis == Bis
+            log.ZeitraumBis == Bis &&
+            log.ExportedByUserId == TestUserId
         )), Times.Once);
     }
 }

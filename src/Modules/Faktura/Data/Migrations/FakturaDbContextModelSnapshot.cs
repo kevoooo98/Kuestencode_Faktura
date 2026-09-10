@@ -23,6 +23,54 @@ namespace Kuestencode.Faktura.Data.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Kuestencode.Faktura.Models.AuditLogEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<Guid>("ChangedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ChangedByUserName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTime>("ChangedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("EntityId")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("EntityName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("FieldName")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("NewValue")
+                        .HasColumnType("text");
+
+                    b.Property<string>("OldValue")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EntityName", "EntityId");
+
+                    b.ToTable("AuditLogEntries", "faktura");
+                });
+
             modelBuilder.Entity("Kuestencode.Faktura.Models.DownPayment", b =>
                 {
                     b.Property<int>("Id")
@@ -70,6 +118,13 @@ namespace Kuestencode.Faktura.Data.Migrations
                         .HasColumnType("integer");
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("CancellationReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTime?>("CancelledAt")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
@@ -196,6 +251,9 @@ namespace Kuestencode.Faktura.Data.Migrations
                     b.Property<int>("InvoiceId")
                         .HasColumnType("integer");
 
+                    b.Property<bool>("IsFrozenSnapshot")
+                        .HasColumnType("boolean");
+
                     b.Property<DateTime>("UploadedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
@@ -284,6 +342,30 @@ namespace Kuestencode.Faktura.Data.Migrations
                     b.HasIndex("InvoiceId");
 
                     b.ToTable("InvoicePayments", "faktura");
+                });
+
+            modelBuilder.Entity("Kuestencode.Faktura.Models.NumberSequence", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<long>("CurrentValue")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("SequenceKey")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SequenceKey")
+                        .IsUnique();
+
+                    b.ToTable("NumberSequences", "faktura");
                 });
 
             modelBuilder.Entity("Kuestencode.Faktura.Models.DownPayment", b =>

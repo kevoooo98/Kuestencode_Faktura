@@ -17,6 +17,13 @@
 
     <!-- Dependency Injection -->
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="9.0.0" />
+
+    <!-- HttpContext access for ICurrentUserAccessor -->
+    <PackageReference Include="Microsoft.AspNetCore.Http.Abstractions" Version="2.2.0" />
+
+    <!-- DatabaseFacade access for NumberSequenceService (raw ADO.NET, no provider-specific dependency) -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="9.0.0" />
   </ItemGroup>
 
 </Project>

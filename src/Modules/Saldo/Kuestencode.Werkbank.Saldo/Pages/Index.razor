@@ -1,6 +1,9 @@
 @page "/"
+@using Kuestencode.Core.Auth
 @inject ISaldoAggregationService SaldoService
 @inject IDatevExportService ExportService
+@inject IPeriodCloseService PeriodCloseService
+@inject ICurrentUserAccessor CurrentUserAccessor
 @inject ICompanyService CompanyService
 @inject IJSRuntime JS
 @inject ISnackbar Snackbar
@@ -67,6 +70,13 @@
     @if (_loading)
     {
         <MudProgressLinear Color="Color.Primary" Indeterminate="true" Class="mb-4" />
+    }
+
+    @if (_periodClose != null)
+    {
+        <MudAlert Severity="Severity.Info" Class="mb-4" Dense="true" Icon="@Icons.Material.Filled.Lock">
+            Zeitraum wurde am @_periodClose.ClosedAt.ToString("dd.MM.yyyy HH:mm") exportiert und abgeschlossen.
+        </MudAlert>
     }
 
     @* Übersichts-Karten *@
@@ -192,6 +202,18 @@
                 Belege (ZIP)
             </MudButton>
 
+            <MudTooltip Text="@(_periodClose == null && _lastExportLogIdForPeriod == null ? "Bitte zuerst DATEV- oder Belege-Export für diesen Zeitraum durchführen." : "")">
+                <MudButton Variant="Variant.Outlined" Color="Color.Warning"
+                           StartIcon="@Icons.Material.Filled.Lock"
+                           OnClick="ClosePeriodAsync" Disabled="@(_closingPeriod || _periodClose != null || _lastExportLogIdForPeriod == null)">
+                    @if (_closingPeriod)
+                    {
+                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                    }
+                    Zeitraum abschließen
+                </MudButton>
+            </MudTooltip>
+
             <MudDivider Vertical="true" FlexItem="true" Class="mx-1" />
 
             <MudButton Variant="Variant.Text" Color="Color.Default"
@@ -233,6 +255,10 @@
     private bool _loading = true;
     private bool _exportingDatev = false;
     private bool _exportingBelege = false;
+    private bool _closingPeriod = false;
+
+    private PeriodCloseDto? _periodClose;
+    private Guid? _lastExportLogIdForPeriod;
 
     private SaldoUebersichtDto? _uebersicht;
     private int _anzahlEinnahmen;
@@ -294,6 +320,9 @@
             ),
             _ => (new DateOnly(jahr, 1, 1), new DateOnly(jahr, 12, 31))
         };
+
+        // Ein Export für einen anderen Zeitraum darf den Abschluss dieses Zeitraums nicht freischalten.
+        _lastExportLogIdForPeriod = null;
     }
 
     private async Task LoadDataAsync()
@@ -306,6 +335,7 @@
             _anzahlEinnahmen = buchungen.Count(b => b.Typ == BuchungsTyp.Einnahme);
             _anzahlAusgaben = buchungen.Count(b => b.Typ == BuchungsTyp.Ausgabe);
             _uebersicht = await SaldoService.GetUebersichtAsync(_von, _bis);
+            _periodClose = await PeriodCloseService.GetForRangeAsync(_von, _bis);
         }
         catch (Exception ex)
         {
@@ -322,10 +352,11 @@
         _exportingDatev = true;
         try
         {
-            var bytes = await ExportService.ExportBuchungsstapelAsync(_von, _bis);
+            var bytes = await ExportService.ExportBuchungsstapelAsync(_von, _bis, CurrentUserAccessor.Get().UserId);
             var quartal = GetQuartal(_von, _bis);
             var fileName = $"EXTF_Buchungsstapel_{_von:yyyy}_{quartal}.csv";
             await DownloadFileAsync(bytes, fileName, "text/csv");
+            _lastExportLogIdForPeriod = (await ExportService.GetLetztenExportAsync())?.Id;
             Snackbar.Add("DATEV-Export erstellt.", Severity.Success);
         }
         catch (Exception ex)
@@ -343,10 +374,11 @@
         _exportingBelege = true;
         try
         {
-            var bytes = await ExportService.ExportBelegeAsync(_von, _bis);
+            var bytes = await ExportService.ExportBelegeAsync(_von, _bis, CurrentUserAccessor.Get().UserId);
             var quartal = GetQuartal(_von, _bis);
             var fileName = $"Belege_{_von:yyyy}_{quartal}.zip";
             await DownloadFileAsync(bytes, fileName, "application/zip");
+            _lastExportLogIdForPeriod = (await ExportService.GetLetztenExportAsync())?.Id;
             Snackbar.Add("Belege-Export erstellt.", Severity.Success);
         }
         catch (Exception ex)
@@ -356,6 +388,25 @@
         finally
         {
             _exportingBelege = false;
+        }
+    }
+
+    private async Task ClosePeriodAsync()
+    {
+        _closingPeriod = true;
+        try
+        {
+            _periodClose = await PeriodCloseService.ClosePeriodAsync(
+                _von, _bis, CurrentUserAccessor.Get().UserId, _lastExportLogIdForPeriod);
+            Snackbar.Add("Zeitraum abgeschlossen.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Fehler beim Abschließen: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _closingPeriod = false;
         }
     }
 

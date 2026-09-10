@@ -23,6 +23,54 @@ namespace Kuestencode.Werkbank.Recepta.Data.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Kuestencode.Werkbank.Recepta.Domain.Entities.AuditLogEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<Guid>("ChangedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ChangedByUserName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTime>("ChangedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("EntityId")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("EntityName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("FieldName")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("NewValue")
+                        .HasColumnType("text");
+
+                    b.Property<string>("OldValue")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EntityName", "EntityId");
+
+                    b.ToTable("AuditLogEntries", "recepta");
+                });
+
             modelBuilder.Entity("Kuestencode.Werkbank.Recepta.Domain.Entities.DocumentActivityLog", b =>
                 {
                     b.Property<Guid>("Id")
@@ -280,6 +328,30 @@ namespace Kuestencode.Werkbank.Recepta.Data.Migrations
                     b.HasIndex("DocumentId");
 
                     b.ToTable("DocumentFiles", "recepta");
+                });
+
+            modelBuilder.Entity("Kuestencode.Werkbank.Recepta.Domain.Entities.NumberSequence", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<long>("CurrentValue")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("SequenceKey")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SequenceKey")
+                        .IsUnique();
+
+                    b.ToTable("NumberSequences", "recepta");
                 });
 
             modelBuilder.Entity("Kuestencode.Werkbank.Recepta.Domain.Entities.Supplier", b =>

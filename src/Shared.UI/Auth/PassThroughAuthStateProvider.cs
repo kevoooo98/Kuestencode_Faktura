@@ -1,4 +1,3 @@
-using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -43,10 +42,10 @@ public class PassThroughAuthStateProvider : AuthenticationStateProvider
         var httpContext = _httpContextAccessor.HttpContext;
         if (httpContext != null)
         {
-            var token = ExtractTokenFromHttpContext(httpContext);
+            var token = JwtPrincipalParser.ExtractToken(httpContext);
             if (!string.IsNullOrEmpty(token))
             {
-                var principal = ParseJwt(token);
+                var principal = JwtPrincipalParser.Parse(token);
                 if (principal != null)
                 {
                     _logger.LogInformation("PassThrough: JWT from HttpContext. Role={Role}",
@@ -69,7 +68,7 @@ public class PassThroughAuthStateProvider : AuthenticationStateProvider
             var jwt = await _jsRuntime.InvokeAsync<string?>("getWerkbankJwt");
             if (!string.IsNullOrEmpty(jwt))
             {
-                var principal = ParseJwt(jwt);
+                var principal = JwtPrincipalParser.Parse(jwt);
                 if (principal != null)
                 {
                     _logger.LogInformation("PassThrough: JWT from JS window.__werkbank_jwt. Role={Role}",
@@ -87,47 +86,5 @@ public class PassThroughAuthStateProvider : AuthenticationStateProvider
 
         _logger.LogWarning("PassThrough: No auth found — returning anonymous");
         return new AuthenticationState(Anonymous);
-    }
-
-    private string? ExtractTokenFromHttpContext(HttpContext httpContext)
-    {
-        _logger.LogInformation(
-            "PassThrough: HttpContext available. Path={Path}, HasAuthCookie={HasCookie}, HasAuthHeader={HasHeader}",
-            httpContext.Request.Path,
-            httpContext.Request.Cookies.ContainsKey("werkbank_auth_cookie"),
-            httpContext.Request.Headers.ContainsKey("Authorization"));
-
-        if (httpContext.Request.Cookies.TryGetValue("werkbank_auth_cookie", out var cookie)
-            && !string.IsNullOrEmpty(cookie))
-            return cookie;
-
-        var authHeader = httpContext.Request.Headers.Authorization.FirstOrDefault();
-        if (!string.IsNullOrEmpty(authHeader) && authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
-            return authHeader["Bearer ".Length..].Trim();
-
-        return null;
-    }
-
-    private static ClaimsPrincipal? ParseJwt(string token)
-    {
-        try
-        {
-            var handler = new JwtSecurityTokenHandler();
-            var jwt = handler.ReadJwtToken(token);
-            if (jwt.ValidTo < DateTime.UtcNow) return null;
-
-            var claims = jwt.Claims.Select(c => new Claim(
-                c.Type switch
-                {
-                    "role"   => ClaimTypes.Role,
-                    "name"   => ClaimTypes.Name,
-                    "nameid" => ClaimTypes.NameIdentifier,
-                    "email"  => ClaimTypes.Email,
-                    _        => c.Type
-                }, c.Value));
-
-            return new ClaimsPrincipal(new ClaimsIdentity(claims, "jwt"));
-        }
-        catch { return null; }
     }
 }

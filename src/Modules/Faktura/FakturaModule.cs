@@ -26,6 +26,8 @@ public static class FakturaModule
     /// <returns>The service collection for chaining</returns>
     public static IServiceCollection AddFakturaModule(this IServiceCollection services, IConfiguration configuration)
     {
+        services.AddScoped<Kuestencode.Core.Auth.ICurrentUserAccessor, Kuestencode.Core.Auth.HttpContextCurrentUserAccessor>();
+
         // Add DbContext with PostgreSQL (Faktura-Schema)
         services.AddDbContext<FakturaDbContext>(options =>
             options.UseNpgsql(configuration.GetConnectionString("DefaultConnection")));

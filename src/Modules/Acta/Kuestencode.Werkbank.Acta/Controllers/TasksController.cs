@@ -1,3 +1,5 @@
+using Kuestencode.Shared.Contracts.Host;
+using Kuestencode.Shared.UI.Auth;
 using Kuestencode.Werkbank.Acta.Controllers.Dtos;
 using Kuestencode.Werkbank.Acta.Domain.Dtos;
 using Kuestencode.Werkbank.Acta.Domain.Entities;
@@ -23,6 +25,7 @@ public class TasksController : ControllerBase
     /// Lädt alle Aufgaben eines Projekts.
     /// </summary>
     [HttpGet("projects/{projectId:guid}/tasks")]
+    [RequireRole(UserRole.Admin, UserRole.Buero, UserRole.Mitarbeiter)]
     public async Task<ActionResult<List<ProjectTaskDto>>> GetByProject(Guid projectId)
     {
         var tasks = await _taskService.GetByProjectIdAsync(projectId);
@@ -33,6 +36,7 @@ public class TasksController : ControllerBase
     /// Lädt alle Aufgaben, die einem Benutzer zugewiesen sind.
     /// </summary>
     [HttpGet("tasks/assigned/{userId:guid}")]
+    [RequireRole(UserRole.Admin, UserRole.Buero, UserRole.Mitarbeiter)]
     public async Task<ActionResult<List<AssignedProjectTaskDto>>> GetAssignedToUser(Guid userId)
     {
         var tasks = await _taskService.GetByAssignedUserIdAsync(userId);
@@ -43,6 +47,7 @@ public class TasksController : ControllerBase
     /// Erstellt eine neue Aufgabe für ein Projekt.
     /// </summary>
     [HttpPost("projects/{projectId:guid}/tasks")]
+    [RequireRole(UserRole.Admin, UserRole.Buero)]
     public async Task<ActionResult<ProjectTaskDto>> Create(Guid projectId, [FromBody] CreateTaskRequest request)
     {
         try
@@ -72,6 +77,7 @@ public class TasksController : ControllerBase
     /// Lädt eine Aufgabe anhand der ID.
     /// </summary>
     [HttpGet("tasks/{id:guid}")]
+    [RequireRole(UserRole.Admin, UserRole.Buero, UserRole.Mitarbeiter)]
     public async Task<ActionResult<ProjectTaskDto>> GetById(Guid id)
     {
         var task = await _taskService.GetByIdAsync(id);
@@ -87,6 +93,7 @@ public class TasksController : ControllerBase
     /// Aktualisiert eine Aufgabe.
     /// </summary>
     [HttpPut("tasks/{id:guid}")]
+    [RequireRole(UserRole.Admin, UserRole.Buero)]
     public async Task<ActionResult<ProjectTaskDto>> Update(Guid id, [FromBody] UpdateTaskRequest request)
     {
         try
@@ -116,6 +123,7 @@ public class TasksController : ControllerBase
     /// Markiert eine Aufgabe als erledigt.
     /// </summary>
     [HttpPost("tasks/{id:guid}/complete")]
+    [RequireRole(UserRole.Admin, UserRole.Buero, UserRole.Mitarbeiter)]
     public async Task<ActionResult<ProjectTaskDto>> Complete(Guid id)
     {
         try
@@ -137,6 +145,7 @@ public class TasksController : ControllerBase
     /// Setzt eine Aufgabe wieder auf offen.
     /// </summary>
     [HttpPost("tasks/{id:guid}/reopen")]
+    [RequireRole(UserRole.Admin, UserRole.Buero, UserRole.Mitarbeiter)]
     public async Task<ActionResult<ProjectTaskDto>> Reopen(Guid id)
     {
         try
@@ -158,6 +167,7 @@ public class TasksController : ControllerBase
     /// Ordnet die Aufgaben eines Projekts neu an.
     /// </summary>
     [HttpPut("projects/{projectId:guid}/tasks/reorder")]
+    [RequireRole(UserRole.Admin, UserRole.Buero)]
     public async Task<IActionResult> Reorder(Guid projectId, [FromBody] ReorderTasksRequest request)
     {
         try
@@ -179,6 +189,7 @@ public class TasksController : ControllerBase
     /// Löscht eine Aufgabe.
     /// </summary>
     [HttpDelete("tasks/{id:guid}")]
+    [RequireRole(UserRole.Admin, UserRole.Buero)]
     public async Task<IActionResult> Delete(Guid id)
     {
         try

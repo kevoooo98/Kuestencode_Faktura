@@ -67,6 +67,19 @@ public class Invoice
 
     public int? RelatedInvoiceId { get; set; }
 
+    // Storno
+    public DateTime? CancelledAt { get; set; }
+
+    [MaxLength(500)]
+    public string? CancellationReason { get; set; }
+
+    /// <summary>
+    /// Rechnungen außerhalb des Draft-Status sind unveränderlich (GoBD) — Korrektur nur über
+    /// Gutschrift oder Storno, siehe <see cref="Services.InvoiceService.UpdateAsync"/>.
+    /// </summary>
+    [NotMapped]
+    public bool IsLocked => Status != InvoiceStatus.Draft;
+
     // Navigation Properties
     // Customer ist in einem anderen Schema (host) - wird separat geladen
     [NotMapped]

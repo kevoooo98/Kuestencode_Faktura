@@ -145,6 +145,8 @@ public class KontoMappingOverrideDto
     public string Kategorie { get; set; } = string.Empty;
     public string KontoNummer { get; set; } = string.Empty;
     public string KontoBezeichnung { get; set; } = string.Empty;
+    public DateOnly GueltigAb { get; set; }
+    public DateOnly? GueltigBis { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 }
@@ -182,4 +184,18 @@ public class ExportLogDto
     public string DateiName { get; set; } = string.Empty;
     public long DateiGroesse { get; set; }
     public DateTime ExportedAt { get; set; }
+    public Guid ExportedByUserId { get; set; }
+}
+
+/// <summary>
+/// Informativer Abschluss eines Zeitraums nach einem Export.
+/// </summary>
+public class PeriodCloseDto
+{
+    public Guid Id { get; set; }
+    public DateOnly ZeitraumVon { get; set; }
+    public DateOnly ZeitraumBis { get; set; }
+    public DateTime ClosedAt { get; set; }
+    public Guid ClosedByUserId { get; set; }
+    public Guid? ExportLogId { get; set; }
 }

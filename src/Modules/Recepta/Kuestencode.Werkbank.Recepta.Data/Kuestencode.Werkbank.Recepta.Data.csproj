@@ -20,6 +20,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Kuestencode.Werkbank.Recepta.Domain\Kuestencode.Werkbank.Recepta.Domain.csproj" />
     <ProjectReference Include="..\..\..\Kuestencode.Shared.ApiClients\Kuestencode.Shared.ApiClients.csproj" />
+    <ProjectReference Include="..\..\..\Core\Kuestencode.Core.csproj" />
   </ItemGroup>
 
 </Project>

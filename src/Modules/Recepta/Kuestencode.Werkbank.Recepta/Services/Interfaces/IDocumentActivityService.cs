@@ -2,7 +2,6 @@ namespace Kuestencode.Werkbank.Recepta.Services.Interfaces;
 
 public interface IDocumentActivityService
 {
-    Task LogAsync(string userName, string documentNumber, string action);
     Task<IEnumerable<DocumentActivityDto>> GetRecentAsync(int count = 15);
 }
 

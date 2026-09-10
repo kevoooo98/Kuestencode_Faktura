@@ -384,6 +384,34 @@
                     </MudItem>
                 }
 
+                @if (_auditLog.Count > 0)
+                {
+                    <MudItem xs="12" Class="mt-4">
+                        <MudExpansionPanels>
+                            <MudExpansionPanel Text="@($"Änderungshistorie ({_auditLog.Count})")">
+                                <MudTable Items="@_auditLog" Dense="true" Hover="true">
+                                    <HeaderContent>
+                                        <MudTh>Zeitpunkt</MudTh>
+                                        <MudTh>Aktion</MudTh>
+                                        <MudTh>Feld</MudTh>
+                                        <MudTh>Alter Wert</MudTh>
+                                        <MudTh>Neuer Wert</MudTh>
+                                        <MudTh>Nutzer</MudTh>
+                                    </HeaderContent>
+                                    <RowTemplate>
+                                        <MudTd>@context.ChangedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</MudTd>
+                                        <MudTd>@context.Action</MudTd>
+                                        <MudTd>@(context.FieldName ?? "—")</MudTd>
+                                        <MudTd>@(context.OldValue ?? "—")</MudTd>
+                                        <MudTd>@(context.NewValue ?? "—")</MudTd>
+                                        <MudTd>@context.ChangedByUserName</MudTd>
+                                    </RowTemplate>
+                                </MudTable>
+                            </MudExpansionPanel>
+                        </MudExpansionPanels>
+                    </MudItem>
+                }
+
                 <!-- Actions -->
                 <MudItem xs="12" Class="mt-6">
                     <MudStack Row="true" Justify="Justify.SpaceBetween">
@@ -418,6 +446,15 @@
                                           StartIcon="@Icons.Material.Filled.Undo"
                                           OnClick="CreateCreditNote">
                                     Gutschrift erstellen
+                                </MudButton>
+                            }
+
+                            @if (_invoice.Status != InvoiceStatus.Draft && _invoice.Status != InvoiceStatus.Cancelled)
+                            {
+                                <MudButton Variant="Variant.Outlined" Color="Color.Error"
+                                          StartIcon="@Icons.Material.Filled.Cancel"
+                                          OnClick="CancelInvoice">
+                                    Stornieren
                                 </MudButton>
                             }
 

@@ -63,12 +63,25 @@ public class InvoiceRepository : Repository<Invoice>, IInvoiceRepository
 
     private async Task<string> GenerateNumberAsync(string format, InvoiceType type)
     {
-        var existingNumbers = await _dbSet
-            .Where(i => i.Type == type)
-            .Select(i => i.InvoiceNumber)
-            .ToListAsync();
+        var referenceDate = DateTime.Now;
+        var prefix = DocumentNumberFormatter.SplitAroundSequence(format, referenceDate).Prefix;
+        var sequenceKey = $"{type}:{prefix}";
 
-        return DocumentNumberFormatter.GenerateNext(format, DateTime.Now, existingNumbers);
+        return await NumberSequenceService.GetNextNumberAsync(
+            _context.Database,
+            "faktura.\"NumberSequences\"",
+            sequenceKey,
+            format,
+            referenceDate,
+            seedFromExistingAsync: async () =>
+            {
+                var existingNumbers = await _dbSet
+                    .Where(i => i.Type == type)
+                    .Select(i => i.InvoiceNumber)
+                    .ToListAsync();
+
+                return DocumentNumberFormatter.GetLastSequenceNumber(format, referenceDate, existingNumbers);
+            });
     }
 
     private async Task<string> GetInvoiceNumberFormatAsync()

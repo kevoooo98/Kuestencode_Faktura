@@ -72,7 +72,7 @@ public class KontoMappingServiceTests
         const string kategorie = "Büromaterial";
         SetupKontenrahmen("SKR03");
 
-        _overrideRepo.Setup(r => r.GetByKategorieAsync("SKR03", kategorie))
+        _overrideRepo.Setup(r => r.GetByKategorieAsync("SKR03", kategorie, It.IsAny<DateOnly>()))
             .ReturnsAsync(new KontoMappingOverride { KontoNummer = "4950" });
         _mappingRepo.Setup(r => r.GetByKategorieAsync("SKR03", kategorie))
             .ReturnsAsync(new KategorieKontoMapping { KontoNummer = "4930" });
@@ -89,7 +89,7 @@ public class KontoMappingServiceTests
         const string kategorie = "Reisekosten";
         SetupKontenrahmen("SKR03");
 
-        _overrideRepo.Setup(r => r.GetByKategorieAsync("SKR03", kategorie))
+        _overrideRepo.Setup(r => r.GetByKategorieAsync("SKR03", kategorie, It.IsAny<DateOnly>()))
             .ReturnsAsync((KontoMappingOverride?)null);
         _mappingRepo.Setup(r => r.GetByKategorieAsync("SKR03", kategorie))
             .ReturnsAsync(new KategorieKontoMapping { KontoNummer = "4660" });
@@ -108,7 +108,7 @@ public class KontoMappingServiceTests
         const string kategorie = "UnbekanntKategorie";
         SetupKontenrahmen(kontenrahmen);
 
-        _overrideRepo.Setup(r => r.GetByKategorieAsync(kontenrahmen, kategorie))
+        _overrideRepo.Setup(r => r.GetByKategorieAsync(kontenrahmen, kategorie, It.IsAny<DateOnly>()))
             .ReturnsAsync((KontoMappingOverride?)null);
         _mappingRepo.Setup(r => r.GetByKategorieAsync(kontenrahmen, kategorie))
             .ReturnsAsync((KategorieKontoMapping?)null);
@@ -117,6 +117,23 @@ public class KontoMappingServiceTests
         var result = await service.GetAusgabenKontoAsync(kategorie);
 
         result.Should().Be(erwartetesKonto);
+    }
+
+    [Fact]
+    public async Task GetAusgabenKonto_MitStichtag_ReichtStichtagAnRepositoryDurch()
+    {
+        const string kategorie = "Büromaterial";
+        var stichtag = new DateOnly(2026, 1, 1);
+        SetupKontenrahmen("SKR03");
+
+        _overrideRepo.Setup(r => r.GetByKategorieAsync("SKR03", kategorie, stichtag))
+            .ReturnsAsync(new KontoMappingOverride { KontoNummer = "4950" });
+
+        var service = CreateService();
+        var result = await service.GetAusgabenKontoAsync(kategorie, stichtag);
+
+        result.Should().Be("4950");
+        _overrideRepo.Verify(r => r.GetByKategorieAsync("SKR03", kategorie, stichtag), Times.Once);
     }
 
     // ─── GetBankKontoAsync ────────────────────────────────────────────────────
@@ -215,7 +232,7 @@ public class KontoMappingServiceTests
 
         _kontoRepo.Setup(r => r.ExistsAsync("SKR03", kontoNummer))
             .ReturnsAsync(true);
-        _overrideRepo.Setup(r => r.UpsertAsync("SKR03", kategorie, kontoNummer))
+        _overrideRepo.Setup(r => r.SetOverrideAsync("SKR03", kategorie, kontoNummer, It.IsAny<DateOnly>()))
             .ReturnsAsync(new KontoMappingOverride
             {
                 Kategorie = kategorie,
@@ -228,7 +245,7 @@ public class KontoMappingServiceTests
 
         result.KontoNummer.Should().Be(kontoNummer);
         result.Kategorie.Should().Be(kategorie);
-        _overrideRepo.Verify(r => r.UpsertAsync("SKR03", kategorie, kontoNummer), Times.Once);
+        _overrideRepo.Verify(r => r.SetOverrideAsync("SKR03", kategorie, kontoNummer, It.IsAny<DateOnly>()), Times.Once);
     }
 
     // ─── ResetMappingAsync ────────────────────────────────────────────────────
@@ -238,12 +255,12 @@ public class KontoMappingServiceTests
     {
         const string kategorie = "Büromaterial";
         SetupKontenrahmen("SKR03");
-        _overrideRepo.Setup(r => r.DeleteAsync("SKR03", kategorie)).Returns(Task.CompletedTask);
+        _overrideRepo.Setup(r => r.DeleteAsync("SKR03", kategorie, It.IsAny<DateOnly>())).Returns(Task.CompletedTask);
 
         var service = CreateService();
         await service.ResetMappingAsync(kategorie);
 
-        _overrideRepo.Verify(r => r.DeleteAsync("SKR03", kategorie), Times.Once);
+        _overrideRepo.Verify(r => r.DeleteAsync("SKR03", kategorie, It.IsAny<DateOnly>()), Times.Once);
     }
 
     // ─── GetAlleKontenAsync ───────────────────────────────────────────────────

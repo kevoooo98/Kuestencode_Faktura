@@ -15,6 +15,8 @@ public static class SaldoModule
 {
     public static IServiceCollection AddSaldoModule(this IServiceCollection services, IConfiguration configuration)
     {
+        services.AddScoped<Kuestencode.Core.Auth.ICurrentUserAccessor, Kuestencode.Core.Auth.HttpContextCurrentUserAccessor>();
+
         // Use factory so each repository operation gets its own short-lived context,
         // avoiding concurrent-operation errors in Blazor Server's circuit-scoped DI.
         services.AddDbContextFactory<SaldoDbContext>(options =>
@@ -26,12 +28,14 @@ public static class SaldoModule
         services.AddScoped<IKategorieKontoMappingRepository, KategorieKontoMappingRepository>();
         services.AddScoped<IKontoMappingOverrideRepository, KontoMappingOverrideRepository>();
         services.AddScoped<IExportLogRepository, ExportLogRepository>();
+        services.AddScoped<IPeriodCloseRepository, PeriodCloseRepository>();
 
         // Register Application Services
         services.AddScoped<ISaldoSettingsService, SaldoSettingsService>();
         services.AddScoped<IKontoService, KontoService>();
         services.AddScoped<IKontoMappingService, KontoMappingService>();
         services.AddScoped<IEuerService, EuerService>();
+        services.AddScoped<IPeriodCloseService, PeriodCloseService>();
 
         // Aggregations-Services (Zufluss-/Abflussprinzip)
         services.AddScoped<IEinnahmenService, EinnahmenService>();

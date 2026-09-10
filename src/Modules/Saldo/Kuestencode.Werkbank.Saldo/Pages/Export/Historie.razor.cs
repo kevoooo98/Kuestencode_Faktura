@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 using MudBlazor;
+using Kuestencode.Core.Auth;
 using Kuestencode.Werkbank.Saldo.Domain.Dtos;
 using Kuestencode.Werkbank.Saldo.Services;
 using Kuestencode.Shared.UI.Pages;
@@ -10,6 +11,7 @@ namespace Kuestencode.Werkbank.Saldo.Pages.Export;
 public partial class Historie
 {
     [Inject] private IDatevExportService ExportService { get; set; } = default!;
+    [Inject] private ICurrentUserAccessor CurrentUserAccessor { get; set; } = default!;
     [Inject] private IJSRuntime JS { get; set; } = default!;
     [Inject] private ISnackbar Snackbar { get; set; } = default!;
     [Inject] private NavigationManager NavigationManager { get; set; } = default!;
@@ -52,7 +54,7 @@ public partial class Historie
         StateHasChanged();
         try
         {
-            var bytes    = await ExportService.ExportBuchungsstapelAsync(von, bis);
+            var bytes    = await ExportService.ExportBuchungsstapelAsync(von, bis, CurrentUserAccessor.Get().UserId);
             var fileName = $"EXTF_Buchungsstapel_{von:yyyy}_{GetQuartal(von, bis)}.csv";
             await DownloadAsync(bytes, fileName, "text/csv");
             Snackbar.Add($"DATEV-Export erstellt: {fileName}", Severity.Success);
@@ -74,7 +76,7 @@ public partial class Historie
         StateHasChanged();
         try
         {
-            var bytes    = await ExportService.ExportBelegeAsync(von, bis);
+            var bytes    = await ExportService.ExportBelegeAsync(von, bis, CurrentUserAccessor.Get().UserId);
             var fileName = $"Belege_{von:yyyy}_{GetQuartal(von, bis)}.zip";
             await DownloadAsync(bytes, fileName, "application/zip");
             Snackbar.Add($"Belege-Export erstellt: {fileName}", Severity.Success);

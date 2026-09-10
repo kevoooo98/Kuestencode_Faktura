@@ -10,8 +10,6 @@
 @inject ICachedProjectService ProjectCache
 @inject NavigationManager NavigationManager
 @inject ISnackbar Snackbar
-@inject Kuestencode.Werkbank.Recepta.Services.Interfaces.IDocumentActivityService ActivityService
-@inject Microsoft.AspNetCore.Components.Authorization.AuthenticationStateProvider AuthStateProvider
 
 <PageTitle>Beleg erfassen - Küstencode Recepta</PageTitle>
 
@@ -1037,14 +1035,6 @@
             }
 
             Snackbar.Add($"Beleg '{document.DocumentNumber}' wurde erstellt.", Severity.Success);
-
-            try
-            {
-                var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-                var userName = authState.User.Identity?.Name ?? authState.User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value ?? "Unbekannt";
-                await ActivityService.LogAsync(userName, document.DocumentNumber, "erfasst");
-            }
-            catch { /* Activity-Log ist nicht kritisch */ }
 
             NavigationManager.NavigateTo($"/recepta/belege/{document.Id}");
         }

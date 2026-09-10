@@ -21,7 +21,6 @@ public class PdfGeneratorService : IPdfGeneratorService
     private readonly FakturaDbContext _context;
     private readonly IHostApiClient _hostApiClient;
     private readonly IActaApiClient _actaApiClient;
-    private readonly IWebHostEnvironment _environment;
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<PdfGeneratorService> _logger;
 
@@ -29,14 +28,12 @@ public class PdfGeneratorService : IPdfGeneratorService
         FakturaDbContext context,
         IHostApiClient hostApiClient,
         IActaApiClient actaApiClient,
-        IWebHostEnvironment environment,
         IServiceProvider serviceProvider,
         ILogger<PdfGeneratorService> logger)
     {
         _context = context;
         _hostApiClient = hostApiClient;
         _actaApiClient = actaApiClient;
-        _environment = environment;
         _serviceProvider = serviceProvider;
         _logger = logger;
 
@@ -180,8 +177,15 @@ public class PdfGeneratorService : IPdfGeneratorService
         return pdfBytes;
     }
 
-    public async Task<string> GenerateAndSaveAsync(int invoiceId)
+    public async Task FreezeSnapshotAsync(int invoiceId)
     {
+        var alreadyFrozen = await _context.InvoiceAttachments
+            .AnyAsync(a => a.InvoiceId == invoiceId && a.IsFrozenSnapshot);
+        if (alreadyFrozen)
+        {
+            return;
+        }
+
         var invoice = await _context.Invoices.FindAsync(invoiceId);
         if (invoice == null)
         {
@@ -190,15 +194,29 @@ public class PdfGeneratorService : IPdfGeneratorService
 
         var pdfBytes = await GenerateInvoicePdfAsync(invoiceId);
 
-        var invoicesPath = Path.Combine(_environment.WebRootPath, "invoices");
-        Directory.CreateDirectory(invoicesPath);
+        _context.InvoiceAttachments.Add(new InvoiceAttachment
+        {
+            InvoiceId = invoiceId,
+            FileName = $"{invoice.InvoiceNumber}.pdf",
+            ContentType = "application/pdf",
+            FileSize = pdfBytes.Length,
+            Data = pdfBytes,
+            IsFrozenSnapshot = true
+        });
 
-        var fileName = $"{invoice.InvoiceNumber}.pdf";
-        var filePath = Path.Combine(invoicesPath, fileName);
+        await _context.SaveChangesAsync();
+        _logger.LogInformation("PdfGenerator: Snapshot eingefroren (InvoiceId={InvoiceId})", invoiceId);
+    }
 
-        await File.WriteAllBytesAsync(filePath, pdfBytes);
+    public async Task<byte[]?> TryGetFrozenSnapshotAsync(int invoiceId)
+    {
+        var snapshot = await _context.InvoiceAttachments
+            .AsNoTracking()
+            .Where(a => a.InvoiceId == invoiceId && a.IsFrozenSnapshot)
+            .Select(a => a.Data)
+            .FirstOrDefaultAsync();
 
-        return fileName;
+        return snapshot;
     }
 
     /// <summary>

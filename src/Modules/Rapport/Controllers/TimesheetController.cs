@@ -1,11 +1,14 @@
 ﻿using Kuestencode.Rapport.Services;
+using Kuestencode.Shared.Contracts.Host;
 using Kuestencode.Shared.Contracts.Rapport;
+using Kuestencode.Shared.UI.Auth;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Kuestencode.Rapport.Controllers;
 
 [ApiController]
 [Route("api/timesheets")]
+[RequireRole(UserRole.Admin, UserRole.Buero)]
 public class TimesheetController : ControllerBase
 {
     private readonly TimesheetPdfService _pdfService;

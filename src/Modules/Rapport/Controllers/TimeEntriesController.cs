@@ -1,12 +1,15 @@
 using System.ComponentModel.DataAnnotations;
 using Kuestencode.Rapport.Models;
 using Kuestencode.Rapport.Services;
+using Kuestencode.Shared.Contracts.Host;
+using Kuestencode.Shared.UI.Auth;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Kuestencode.Rapport.Controllers;
 
 [ApiController]
 [Route("api/rapport/entries")]
+[RequireRole(UserRole.Admin, UserRole.Buero, UserRole.Mitarbeiter)]
 public class TimeEntriesController : ControllerBase
 {
     private readonly TimeEntryService _timeEntryService;
@@ -216,6 +219,7 @@ public class TimeEntriesController : ControllerBase
     }
 
     [HttpPost("project/{projectId:int}/mark-invoiced")]
+    [RequireRole(UserRole.Admin, UserRole.Buero)]
     public async Task<IActionResult> MarkProjectEntriesAsInvoiced(int projectId)
     {
         await _timeEntryService.MarkProjectEntriesAsInvoicedAsync(projectId);

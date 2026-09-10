@@ -1,6 +1,8 @@
 using Kuestencode.Werkbank.Recepta.Domain.Dtos;
 using Kuestencode.Werkbank.Recepta.Services;
 using Kuestencode.Shared.Contracts.Recepta;
+using Kuestencode.Shared.Contracts.Host;
+using Kuestencode.Shared.UI.Auth;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Net.Http.Headers;
 
@@ -8,6 +10,7 @@ namespace Kuestencode.Werkbank.Recepta.Controllers;
 
 [ApiController]
 [Route("api/recepta")]
+[RequireRole(UserRole.Admin, UserRole.Buero)]
 public class FilesController : ControllerBase
 {
     private readonly IDocumentFileService _fileService;

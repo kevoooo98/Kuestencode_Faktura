@@ -64,11 +64,6 @@
                     }
                     else if (_document.Status == "Booked")
                     {
-                        <MudButton Variant="Variant.Outlined" Color="Color.Default"
-                                  StartIcon="@Icons.Material.Filled.Undo"
-                                  OnClick="RevertToDraft" Disabled="@_statusChanging">
-                            Zurück zu Entwurf
-                        </MudButton>
                         <MudButton Variant="Variant.Filled" Color="Color.Success"
                                   StartIcon="@Icons.Material.Filled.Paid"
                                   OnClick="MarkAsPaid" Disabled="@_statusChanging">
@@ -1156,25 +1151,6 @@
 
             await PaymentService.ZahlungErfassenAsync(Id!.Value, betrag, data.PaymentDate, null);
             Snackbar.Add("Beleg als bezahlt markiert.", Severity.Success);
-            _document = await DocumentService.GetByIdAsync(Id!.Value);
-        }
-        catch (Exception ex)
-        {
-            Snackbar.Add($"Fehler: {ex.Message}", Severity.Error);
-        }
-        finally
-        {
-            _statusChanging = false;
-        }
-    }
-
-    private async Task RevertToDraft()
-    {
-        _statusChanging = true;
-        try
-        {
-            await DocumentService.ChangeStatusAsync(Id!.Value, DocumentStatus.Draft);
-            Snackbar.Add("Beleg auf Entwurf zurückgesetzt.", Severity.Success);
             _document = await DocumentService.GetByIdAsync(Id!.Value);
         }
         catch (Exception ex)

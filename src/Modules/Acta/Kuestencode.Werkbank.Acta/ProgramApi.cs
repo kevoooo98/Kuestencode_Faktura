@@ -178,6 +178,9 @@ public class ProgramApi
         app.UseModuleHealthMonitor();
         app.UseRouting();
 
+        // Populate HttpContext.User from the werkbank JWT for API/controller requests
+        app.UseMiddleware<Kuestencode.Shared.UI.Auth.JwtUserContextMiddleware>();
+
         // Add Authorization
         app.UseAuthorization();
 
